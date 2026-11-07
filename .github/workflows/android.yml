@@ -5,6 +5,8 @@ on:
   push:
     paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch: {}
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,3 +32,9 @@ jobs:
         with:
           name: evidencija-apk
           path: out/*.apk
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(grep -oP "versionName '\K[^']+" android/app/build.gradle)
+          gh release create "v$V-b${{ github.run_number }}" out/*.apk --repo "${{ github.repository }}" --title "Evidencija telefon $V (build ${{ github.run_number }})" --notes "APK za Android. Instalacija: otvori APK na telefonu." --latest

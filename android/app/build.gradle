@@ -3,7 +3,11 @@
 plugins { id 'com.android.application' }
 
 def ksFile = rootProject.file('keystore/evidencija.jks')
-def ksPass = System.getenv('KS_PASS') ?: (project.findProperty('KS_PASS') ?: '')
+// lozinka: tajna KS_PASS (ako postoji) ili keystore/ks.properties (samo u privatnom repozitoriju)
+def ksProps = new Properties()
+def ksPropFile = rootProject.file('keystore/ks.properties')
+if (ksPropFile.exists()) ksPropFile.withInputStream { ksProps.load(it) }
+def ksPass = System.getenv('KS_PASS') ?: (ksProps.getProperty('KS_PASS') ?: '')
 
 android {
     namespace 'ba.ppmontage.evidencija'
