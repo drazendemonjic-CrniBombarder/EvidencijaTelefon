@@ -1,0 +1,38 @@
+// Evidencija radnog vremena – aplikacija za telefon (Android).
+// Program je HTML (src/main/assets/index.html) u WebView-u; Java dio samo otvara datoteke, kameru i dijeljenje u mail.
+plugins { id 'com.android.application' }
+
+def ksFile = rootProject.file('keystore/evidencija.jks')
+def ksPass = System.getenv('KS_PASS') ?: (project.findProperty('KS_PASS') ?: '')
+
+android {
+    namespace 'ba.ppmontage.evidencija'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'ba.ppmontage.evidencija'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+    signingConfigs {
+        release {
+            if (ksFile.exists() && ksPass) {
+                storeFile ksFile
+                storePassword ksPass
+                keyAlias 'evidencija'
+                keyPassword ksPass
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig (ksFile.exists() && ksPass ? signingConfigs.release : signingConfigs.debug)
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

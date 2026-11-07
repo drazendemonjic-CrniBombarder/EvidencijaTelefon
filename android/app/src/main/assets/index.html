@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Evidencija – telefon</title>
+<style>
+  :root {
+    --bg: #f5f6f4; --panel: #ffffff; --ink: #1c2321; --muted: #5d6864; --line: #d5dad7;
+    --accent: #1f5c4a; --accent-ink: #ffffff; --new: #e4f1ea; --mod: #fbf0d6; --err: #a4262c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  header { position: sticky; top: 0; z-index: 5; background: var(--accent); color: var(--accent-ink); padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 1.05rem; margin: 0; flex: 1; font-weight: 600; }
+  header .who { font-size: 0.8rem; opacity: 0.85; display: block; font-weight: 400; }
+  header button { background: transparent; color: inherit; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 0.9rem; }
+  main { padding: 12px; max-width: 640px; margin: 0 auto; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  h3 { font-size: 0.95rem; margin: 14px 0 6px; color: var(--muted); }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+  textarea { min-height: 64px; resize: vertical; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; min-width: 0; }
+  button.btn { display: block; width: 100%; font: inherit; font-weight: 600; padding: 13px; margin-top: 14px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+  button.btn.sec { background: #fff; color: var(--accent); }
+  button.btn.danger { background: #fff; color: var(--err); border-color: var(--err); }
+  button.small { font: inherit; font-size: 0.85rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  button:disabled { opacity: 0.5; }
+  .msg { min-height: 1.2em; margin-top: 8px; font-size: 0.9rem; color: var(--accent); }
+  .msg.bad { color: var(--err); }
+  .hint { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+  .bad-field { border-color: var(--err) !important; }
+  nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; background: var(--panel); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  nav.tabs button { flex: 1; background: none; border: none; font: inherit; font-size: 0.78rem; padding: 8px 2px 10px; color: var(--muted); }
+  nav.tabs button .ic { display: block; font-size: 1.25rem; line-height: 1.3; }
+  nav.tabs button.on { color: var(--accent); font-weight: 600; }
+  nav.tabs .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--err); color: #fff; font-size: 0.7rem; font-weight: 600; margin-left: 2px; }
+  .wlist { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+  .wlist label { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 0.95rem; }
+  .wlist label:last-child { border-bottom: none; }
+  .wlist input { width: 22px; height: 22px; flex: none; margin: 0; }
+  .wlist .id { color: var(--muted); font-size: 0.8rem; min-width: 2.5em; }
+  .chosen { font-size: 0.85rem; color: var(--accent); margin-top: 6px; }
+  .item { border-bottom: 1px solid var(--line); padding: 10px 0; display: flex; gap: 10px; align-items: flex-start; }
+  .item:last-child { border-bottom: none; }
+  .item .t { flex: 1; min-width: 0; }
+  .item .t b { font-weight: 600; }
+  .item .s { color: var(--muted); font-size: 0.85rem; }
+  .item .acts { display: flex; flex-direction: column; gap: 6px; }
+  .day { font-weight: 600; font-size: 0.9rem; margin: 12px 0 2px; color: var(--accent); }
+  .tag { display: inline-block; font-size: 0.72rem; padding: 1px 7px; border-radius: 10px; background: var(--new); color: var(--accent); margin-left: 6px; vertical-align: middle; }
+  .tag.sent { background: #eceeed; color: var(--muted); }
+  .sum { background: var(--new); border-radius: 10px; padding: 10px 12px; font-size: 0.95rem; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .thumbs div { position: relative; }
+  .thumbs img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+  .thumbs button { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 13px; border: none; background: var(--err); color: #fff; font-weight: 700; }
+  .pinbox { max-width: 360px; margin: 8vh auto 0; text-align: center; }
+  .pinbox input { text-align: center; font-size: 1.6rem; letter-spacing: 0.4em; }
+  .logo { font-size: 2.4rem; }
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.45); display: none; align-items: flex-end; justify-content: center; }
+  .modal.on { display: flex; }
+  .modal .sheet { background: var(--panel); width: 100%; max-width: 640px; border-radius: 16px 16px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .seg { display: flex; border: 1px solid var(--accent); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+  .seg button { flex: 1; border: none; background: #fff; color: var(--accent); font: inherit; font-size: 0.9rem; padding: 9px 4px; }
+  .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header id="hdr" hidden>
+  <h1>Evidencija radnog vremena<span class="who" id="who"></span></h1>
+  <button type="button" id="b-exit">Izlaz</button>
+</header>
+
+<!-- aktivacija: učitavanje paketa iz ureda -->
+<main id="v-act" hidden>
+  <div class="pinbox" style="text-align:left">
+    <div class="logo" style="text-align:center">⏱</div>
+    <h2 style="text-align:center">Evidencija radnog vremena</h2>
+    <div class="card">
+      <h2 id="act-title">Aktivacija</h2>
+      <p class="hint" style="margin-top:0" id="act-text">Učitaj paket koji si dobio iz ureda (datoteka .evp) i upiši aktivacijski kod. Zatim postavi svoj PIN.</p>
+      <button type="button" class="btn sec" id="act-pick">Učitaj paket (.evp)</button>
+      <input type="file" id="act-file" hidden>
+      <div class="hint" id="act-fname">Paket nije učitan.</div>
+      <label for="act-code">Aktivacijski kod</label>
+      <input type="text" id="act-code" autocomplete="off" autocapitalize="characters" placeholder="XXXX-XXXX" maxlength="12">
+      <div id="act-pinwrap">
+        <label for="act-pin">Novi PIN (4–8 cifara)</label>
+        <input type="password" id="act-pin" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password">
+        <label for="act-pin2">Ponovi PIN</label>
+        <input type="password" id="act-pin2" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="new-password">
+      </div>
+      <button type="button" class="btn" id="act-go">Aktiviraj</button>
+      <button type="button" class="btn sec" id="act-back" hidden>Nazad</button>
+      <div class="msg" id="act-msg" role="alert"></div>
+    </div>
+  </div>
+</main>
+
+<!-- PIN -->
+<main id="v-pin" hidden>
+  <div class="pinbox">
+    <div class="logo">⏱</div>
+    <h2>Evidencija radnog vremena</h2>
+    <p class="hint" id="pin-who"></p>
+    <div class="card">
+      <label for="pin-in" style="text-align:left">PIN</label>
+      <input type="password" id="pin-in" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="current-password">
+      <button type="button" class="btn" id="pin-go">Otvori</button>
+      <div class="msg bad" id="pin-msg" role="alert"></div>
+    </div>
+    <p class="hint">Zaboravljen PIN: zatraži novi paket iz ureda. Neposlani upisi se tada gube.</p>
+    <button type="button" class="small" id="pin-reset">Nova aktivacija (briše podatke na telefonu)</button>
+  </div>
+</main>
+
+<!-- glavni dio -->
+<main id="v-upis" hidden>
+  <div class="card">
+    <h2 id="u-title">Novi upis</h2>
+    <div class="hint" id="u-editnote" hidden></div>
+    <label for="u-proj">Projekat</label>
+    <select id="u-proj"></select>
+    <label for="u-firma">Firma</label>
+    <select id="u-firma"></select>
+    <label for="u-q">Radnici <span id="u-wcount"></span></label>
+    <input type="search" id="u-q" placeholder="Traži po imenu ili ID-u" autocomplete="off">
+    <div class="wlist" id="u-wlist"></div>
+    <div class="chosen" id="u-chosen"></div>
+    <label for="u-datum">Datum</label>
+    <input type="date" id="u-datum">
+    <div class="row">
+      <div><label for="u-start">Početak</label><input type="time" id="u-start"></div>
+      <div><label for="u-end">Kraj</label><input type="time" id="u-end"></div>
+      <div><label for="u-pauza">Pauza</label><input type="time" id="u-pauza"></div>
+    </div>
+    <div class="hint" id="u-calc"></div>
+    <label for="u-nap">Napomena</label>
+    <textarea id="u-nap" maxlength="300"></textarea>
+    <button type="button" class="btn" id="u-save">Snimi upis</button>
+    <button type="button" class="btn sec" id="u-cancel" hidden>Odustani od izmjene</button>
+    <div class="msg" id="u-msg" role="status"></div>
+  </div>
+</main>
+
+<main id="v-lista" hidden>
+  <div class="card">
+    <h2>Upisi</h2>
+    <div class="seg"><button type="button" class="on" data-lf="nep">Neposlano</button><button type="button" data-lf="pos">Poslano</button></div>
+    <div id="l-list"></div>
+  </div>
+</main>
+
+<main id="v-spis" hidden>
+  <div class="card">
+    <div class="seg"><button type="button" class="on" data-sp="r">Radnici</button><button type="button" data-sp="f">Firme</button><button type="button" data-sp="p">Projekti</button></div>
+    <div id="sp-r">
+      <h2>Novi radnik</h2>
+      <div class="row"><div><label for="r-prez">Prezime</label><input type="text" id="r-prez" autocomplete="off"></div><div><label for="r-ime">Ime</label><input type="text" id="r-ime" autocomplete="off"></div></div>
+      <div class="row"><div><label for="r-id">ID radnika (ako je poznat)</label><input type="text" id="r-id" inputmode="numeric" autocomplete="off"></div><div><label for="r-firma">Firma</label><select id="r-firma"></select></div></div>
+      <button type="button" class="btn" id="r-add">Dodaj radnika</button>
+    </div>
+    <div id="sp-f" hidden>
+      <h2>Nova firma</h2>
+      <label for="f-naz">Naziv firme</label><input type="text" id="f-naz" autocomplete="off">
+      <label for="f-adr">Adresa</label><input type="text" id="f-adr" autocomplete="off">
+      <button type="button" class="btn" id="f-add">Dodaj firmu</button>
+    </div>
+    <div id="sp-p" hidden>
+      <h2>Novi projekat</h2>
+      <label for="p-naz">Naziv projekta</label><input type="text" id="p-naz" autocomplete="off">
+      <label for="p-firma">Firma</label><select id="p-firma"></select>
+      <label for="p-adr">Adresa gradilišta</label><input type="text" id="p-adr" autocomplete="off">
+      <button type="button" class="btn" id="p-add">Dodaj projekat</button>
+    </div>
+    <div class="msg" id="sp-msg" role="status"></div>
+  </div>
+  <div class="card"><h2 id="sp-ltitle">Spisak</h2><div id="sp-list"></div></div>
+</main>
+
+<main id="v-send" hidden>
+  <div class="card">
+    <h2>Pošalji u ured</h2>
+    <div class="hint" id="s-exitnote" hidden style="color:var(--err)">Imaš neposlanih podataka. Pošalji ih prije izlaska.</div>
+    <div class="sum" id="s-sum"></div>
+    <h3>Slika dnevnog izvještaja (ako postoji)</h3>
+    <div class="row">
+      <button type="button" class="small" id="s-cam" style="padding:11px">📷 Slikaj</button>
+      <button type="button" class="small" id="s-gal" style="padding:11px">🖼 Iz galerije</button>
+    </div>
+    <input type="file" id="s-camfile" accept="image/*" capture="environment" hidden>
+    <input type="file" id="s-galfile" accept="image/*" multiple hidden>
+    <div class="thumbs" id="s-thumbs"></div>
+    <button type="button" class="btn" id="s-go">Pošalji mailom</button>
+    <button type="button" class="btn sec" id="s-exitnosend" hidden>Izađi bez slanja</button>
+    <div class="msg" id="s-msg" role="status"></div>
+    <p class="hint">Podaci se šalju šifrovani (datoteka .evt) – otvoriti ih može samo program u uredu. Slika ide kao obična slika. Mail ide na: <b id="s-to"></b></p>
+  </div>
+  <div class="card">
+    <h2>Postavke</h2>
+    <button type="button" class="btn sec" id="set-pack">Učitaj novi paket (osvježeni spiskovi)</button>
+    <button type="button" class="btn sec" id="set-pin">Promijeni PIN</button>
+    <div class="hint" id="set-info"></div>
+  </div>
+</main>
+
+<nav class="tabs" id="tabs" hidden>
+  <button type="button" data-tab="upis" class="on"><span class="ic">✏️</span>Upis</button>
+  <button type="button" data-tab="lista"><span class="ic">📋</span>Upisi</button>
+  <button type="button" data-tab="spis"><span class="ic">👥</span>Spiskovi</button>
+  <button type="button" data-tab="send"><span class="ic">✉️</span>Pošalji<span class="badge" id="badge" hidden></span></button>
+</nav>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <h2 id="m-title"></h2>
+    <div id="m-text"></div>
+    <div id="m-body"></div>
+    <div id="m-btns"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var APP_VER = "1.0";
+  var STORE = "evrTel1";
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function pad2(n) { return ("0" + n).slice(-2); }
+  function todayIso() { var d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function nowLocal() { var d = new Date(); return todayIso() + "T" + pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds()); }
+  function fmtDate(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? m[3] + "." + m[2] + "." + m[1] : ""; }
+  var DANI = ["nedjelja", "ponedjeljak", "utorak", "srijeda", "četvrtak", "petak", "subota"];
+  function dayName(iso) { var d = new Date(iso + "T12:00:00"); return isNaN(d) ? "" : DANI[d.getDay()]; }
+  function toMin(t) { var m = /^(\d{1,2}):(\d{2})/.exec(t || ""); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  function minStr(m) { return pad2(Math.floor(m / 60)) + ":" + pad2(m % 60); }
+  function keyOf(x) { return String(x || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function fold(s) { return String(s == null ? "" : s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d"); }
+  var enc = new TextEncoder(), dec = new TextDecoder();
+  var CS = window.crypto && window.crypto.subtle;
+  function rnd(n) { var a = new Uint8Array(n); window.crypto.getRandomValues(a); return a; }
+  function b64(u8) { var s = ""; for (var i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+  function unb64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function cat(a, b) { var o = new Uint8Array(a.length + b.length); o.set(a, 0); o.set(b, a.length); return o; }
+  function magicOk(u8, m) { if (!u8 || u8.length < m.length) return false; for (var i = 0; i < m.length; i++) if (u8[i] !== m.charCodeAt(i)) return false; return true; }
+  var bridge = window.EvrAndroid || null;
+
+  // ===== šifrovanje =====
+  async function pbkdf(secret, salt, iter) {
+    var km = await CS.importKey("raw", enc.encode(secret), "PBKDF2", false, ["deriveKey"]);
+    return CS.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: salt, iterations: iter }, km, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  // paket iz ureda: "EVRPAK01" + iteracije + salt + IV + šifrat (ključ iz aktivacijskog koda)
+  async function openPackage(u8, code) {
+    if (!magicOk(u8, "EVRPAK01") || u8.length < 56) throw new Error("Ovo nije paket iz ureda (.evp).");
+    var hdr = u8.slice(0, 40), iter = new DataView(hdr.buffer).getUint32(8);
+    var k = await pbkdf(String(code).toUpperCase().replace(/[^A-Z0-9]/g, ""), hdr.slice(12, 28), iter);
+    var plain;
+    try { plain = await CS.decrypt({ name: "AES-GCM", iv: hdr.slice(28, 40), additionalData: hdr }, k, u8.subarray(40)); }
+    catch (e) { throw new Error("Pogrešan aktivacijski kod."); }
+    var p = JSON.parse(dec.decode(plain));
+    if (!p || p.tip !== "evr-paket" || !p.telefon || !p.kljuc) throw new Error("Paket nije ispravan.");
+    return p;
+  }
+  // podaci za ured: "EVRTEL01" + jednokratni javni ključ (65) + IV + šifrat; samo privatni ključ baze u uredu ih otvara
+  async function sealForOffice(text, pubJwk) {
+    var pub = await CS.importKey("jwk", pubJwk, { name: "ECDH", namedCurve: "P-256" }, false, []);
+    var eph = await CS.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+    var epk = new Uint8Array(await CS.exportKey("raw", eph.publicKey));
+    var bits = new Uint8Array(await CS.deriveBits({ name: "ECDH", public: pub }, eph.privateKey, 256));
+    var km = new Uint8Array(await CS.digest("SHA-256", cat(bits, enc.encode("EVR-TEL-1"))));
+    var k = await CS.importKey("raw", km, "AES-GCM", false, ["encrypt"]);
+    var iv = rnd(12), hdr = new Uint8Array(85), i;
+    for (i = 0; i < 8; i++) hdr[i] = "EVRTEL01".charCodeAt(i);
+    hdr.set(epk, 8); hdr.set(iv, 73);
+    var ct = new Uint8Array(await CS.encrypt({ name: "AES-GCM", iv: iv, additionalData: hdr }, k, enc.encode(text)));
+    return cat(hdr, ct);
+  }
+
+  // ===== stanje (u telefonu šifrovano PIN-om) =====
+  var st = null, pinKey = null, pinSalt = null, PIN_ITER = 150000;
+  function blank(pkg) {
+    return { v: 1, paket: pkg, upisi: [], novi: { firme: [], projekti: [], radnici: [] }, brojac: 0, zadnje: {}, slanja: [], slike: [] };
+  }
+  function stored() { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } }
+  var saving = Promise.resolve();
+  function save() {
+    if (!st || !pinKey) return saving;
+    var snap = JSON.stringify(st);
+    saving = saving.then(async function () {
+      var iv = rnd(12);
+      var ct = new Uint8Array(await CS.encrypt({ name: "AES-GCM", iv: iv }, pinKey, enc.encode(snap)));
+      var rec = { v: 1, ime: st.paket.telefon.ime, salt: b64(pinSalt), iter: PIN_ITER, iv: b64(iv), ct: b64(ct) };
+      try { localStorage.setItem(STORE, JSON.stringify(rec)); }
+      catch (e) { toast("u-msg", "Memorija telefona je puna – pošalji podatke i ukloni slike.", true); }
+    });
+    return saving;
+  }
+  async function setPin(pin) { pinSalt = rnd(16); pinKey = await pbkdf("evr-pin:" + pin, pinSalt, PIN_ITER); }
+  async function unlock(pin) {
+    var rec = stored(); if (!rec) throw new Error("nema podataka");
+    var salt = unb64(rec.salt), k = await pbkdf("evr-pin:" + pin, salt, rec.iter || PIN_ITER);
+    var plain = await CS.decrypt({ name: "AES-GCM", iv: unb64(rec.iv) }, k, unb64(rec.ct));
+    st = JSON.parse(dec.decode(plain)); pinKey = k; pinSalt = salt;
+    if (!st.slike) st.slike = [];
+  }
+
+  // ===== spiskovi (paket + novi s telefona) =====
+  function allFirme() { return st.paket.firme.map(function (f) { return f.firma; }).concat(st.novi.firme.map(function (f) { return f.firma; })).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort(function (a, b) { return a.localeCompare(b, "hr"); }); }
+  function allProj() { return st.paket.projekti.concat(st.novi.projekti).slice().sort(function (a, b) { return (a.projekat || "").localeCompare(b.projekat || "", "hr", { numeric: true }); }); }
+  function wNaziv(w) { return (w.id_radnik ? w.id_radnik + " " : "") + w.prezime + " " + w.ime; }
+  function allWorkers() {
+    var a = st.paket.radnici.map(function (w) { return { prezime: w.prezime, ime: w.ime, id_radnik: w.id_radnik, firma: w.firma, novo: false }; })
+      .concat(st.novi.radnici.map(function (w) { return { prezime: w.prezime, ime: w.ime, id_radnik: w.id_radnik, firma: w.firma, novo: true }; }));
+    return a.sort(function (x, y) { var nx = parseInt(x.id_radnik, 10), ny = parseInt(y.id_radnik, 10); if (isFinite(nx) && isFinite(ny) && nx !== ny) return nx - ny; if (isFinite(nx) !== isFinite(ny)) return isFinite(nx) ? -1 : 1; return (x.prezime + " " + x.ime).localeCompare(y.prezime + " " + y.ime, "hr"); });
+  }
+  function fillSel(sel, vals, cur, empty) {
+    sel.innerHTML = (empty ? '<option value="">' + esc(empty) + "</option>" : "") + vals.map(function (v) { var o = typeof v === "string" ? { v: v, t: v } : v; return '<option value="' + esc(o.v) + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.t) + "</option>"; }).join("");
+  }
+  function unsent() { return { u: st.upisi.filter(function (x) { return !x.poslano; }), f: st.novi.firme.filter(function (x) { return !x.poslano; }), p: st.novi.projekti.filter(function (x) { return !x.poslano; }), r: st.novi.radnici.filter(function (x) { return !x.poslano; }) }; }
+  function unsentCount() { var n = unsent(); return n.u.length + n.f.length + n.p.length + n.r.length; }
+
+  // ===== prikazi =====
+  var VIEWS = ["act", "pin", "upis", "lista", "spis", "send"], cur = "upis";
+  function show(v) {
+    VIEWS.forEach(function (x) { $("v-" + x).hidden = x !== v; });
+    var main = ["upis", "lista", "spis", "send"].indexOf(v) >= 0;
+    $("hdr").hidden = !main; $("tabs").hidden = !main;
+    if (main) {
+      cur = v;
+      Array.prototype.forEach.call(document.querySelectorAll("nav.tabs button"), function (b) { b.classList.toggle("on", b.getAttribute("data-tab") === v); });
+      if (v === "upis") renderUpis();
+      if (v === "lista") renderLista();
+      if (v === "spis") renderSpis();
+      if (v === "send") renderSend();
+      window.scrollTo(0, 0);
+    }
+    badge();
+  }
+  function badge() { if (!st) return; var n = unsentCount(); $("badge").hidden = !n; $("badge").textContent = n; }
+  function toast(id, t, bad) { var m = $(id); if (!m) return; m.textContent = t || ""; m.classList.toggle("bad", !!bad); }
+  Array.prototype.forEach.call(document.querySelectorAll("nav.tabs button"), function (b) { b.addEventListener("click", function () { $("s-exitnote").hidden = true; $("s-exitnosend").hidden = true; show(b.getAttribute("data-tab")); }); });
+
+  // ----- modal -----
+  function ask(title, text, btns) {
+    return new Promise(function (res) {
+      $("m-title").textContent = title; $("m-text").innerHTML = text; $("m-body").innerHTML = "";
+      $("m-btns").innerHTML = "";
+      btns.forEach(function (b, i) {
+        var e = document.createElement("button"); e.type = "button"; e.className = "btn" + (b.cls ? " " + b.cls : ""); e.textContent = b.t;
+        e.addEventListener("click", function () { $("modal").classList.remove("on"); res(b.v); });
+        $("m-btns").appendChild(e);
+      });
+      $("modal").classList.add("on");
+    });
+  }
+  function modalOpen() { return $("modal").classList.contains("on"); }
+
+  // ===== aktivacija =====
+  var actPkg = null, actMode = "new";   // new | refresh
+  function actShow(mode) {
+    actMode = mode; actPkg = null;
+    $("act-title").textContent = mode === "refresh" ? "Novi paket" : "Aktivacija";
+    $("act-text").textContent = mode === "refresh" ? "Učitaj novi paket iz ureda (osvježeni spiskovi) i upiši njegov kod. Upisi na telefonu ostaju." : "Učitaj paket koji si dobio iz ureda (datoteka .evp) i upiši aktivacijski kod. Zatim postavi svoj PIN.";
+    $("act-pinwrap").hidden = mode === "refresh"; $("act-back").hidden = mode !== "refresh";
+    $("act-fname").textContent = "Paket nije učitan."; $("act-code").value = ""; $("act-pin").value = ""; $("act-pin2").value = ""; toast("act-msg", "");
+    show("act");
+  }
+  $("act-pick").addEventListener("click", function () { $("act-file").value = ""; $("act-file").click(); });
+  $("act-file").addEventListener("change", async function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    actPkg = { name: f.name, u8: new Uint8Array(await f.arrayBuffer()) };
+    $("act-fname").textContent = "Paket: " + f.name;
+    if (!magicOk(actPkg.u8, "EVRPAK01")) toast("act-msg", "Ova datoteka nije paket iz ureda (.evp).", true); else toast("act-msg", "");
+  });
+  // datoteka podijeljena iz WhatsAppa / maila u aplikaciju (poziva Android omotač)
+  window.evrIncomingFile = function (name, data) {
+    var u8 = unb64(data);
+    if (!magicOk(u8, "EVRPAK01")) { alertBox("Datoteka nije paket", "Aplikacija prima samo paket iz ureda (.evp)."); return; }
+    if (st) { actShow("refresh"); } else if (!stored()) { actShow("new"); } else { alertBox("Paket primljen", "Prvo se prijavi PIN-om, pa u Pošalji › Postavke izaberi „Učitaj novi paket“."); return; }
+    actPkg = { name: name, u8: u8 }; $("act-fname").textContent = "Paket: " + name;
+  };
+  function alertBox(t, x) { return ask(t, "<p>" + esc(x) + "</p>", [{ t: "U redu", v: 1 }]); }
+  $("act-back").addEventListener("click", function () { show("send"); });
+  $("act-go").addEventListener("click", async function () {
+    if (!actPkg) { toast("act-msg", "Prvo učitaj paket (.evp).", true); return; }
+    var code = $("act-code").value.trim();
+    if (code.replace(/[^A-Za-z0-9]/g, "").length < 8) { toast("act-msg", "Upiši aktivacijski kod (8 znakova).", true); return; }
+    var pkg;
+    $("act-go").disabled = true; toast("act-msg", "Otvaram paket…");
+    try { pkg = await openPackage(actPkg.u8, code); }
+    catch (e) { toast("act-msg", e.message, true); $("act-go").disabled = false; return; }
+    $("act-go").disabled = false;
+    if (actMode === "refresh") {
+      if (pkg.telefon.id !== st.paket.telefon.id) {
+        var ok = await ask("Paket za drugi telefon", "<p>Ovaj paket je za <b>" + esc(pkg.telefon.ime) + "</b>, a telefon je aktiviran za <b>" + esc(st.paket.telefon.ime) + "</b>. Učitavanje briše sve podatke na telefonu.</p>", [{ t: "Odustani", v: 0, cls: "sec" }, { t: "Obriši i učitaj", v: 1, cls: "danger" }]);
+        if (!ok) return;
+        st = blank(pkg);
+      } else st.paket = pkg;
+      await save(); toast("act-msg", ""); show("send"); toast("s-msg", "Spiskovi su osvježeni (paket od " + fmtDate(String(pkg.izdato).slice(0, 10)) + ")."); return;
+    }
+    var p1 = $("act-pin").value, p2 = $("act-pin2").value;
+    if (!/^\d{4,8}$/.test(p1)) { toast("act-msg", "PIN mora imati 4 do 8 cifara.", true); return; }
+    if (p1 !== p2) { toast("act-msg", "PIN-ovi nisu isti.", true); return; }
+    st = blank(pkg); await setPin(p1); await save();
+    toast("act-msg", ""); startApp();
+  });
+
+  // ===== PIN =====
+  var pinFails = 0, pinUntil = 0;
+  async function pinTry() {
+    if (Date.now() < pinUntil) { toast("pin-msg", "Previše pogrešnih pokušaja. Sačekaj " + Math.ceil((pinUntil - Date.now()) / 1000) + " s.", true); return; }
+    var pin = $("pin-in").value;
+    if (!pin) return;
+    $("pin-go").disabled = true; toast("pin-msg", "");
+    try { await unlock(pin); $("pin-in").value = ""; pinFails = 0; startApp(); }
+    catch (e) { pinFails++; if (pinFails >= 5) pinUntil = Date.now() + 30000 * (pinFails - 4); toast("pin-msg", "Pogrešan PIN.", true); $("pin-in").select(); }
+    finally { $("pin-go").disabled = false; }
+  }
+  $("pin-go").addEventListener("click", pinTry);
+  $("pin-in").addEventListener("keydown", function (e) { if (e.key === "Enter") pinTry(); });
+  $("pin-reset").addEventListener("click", async function () {
+    var ok = await ask("Nova aktivacija", "<p>Svi podaci na telefonu se brišu, i neposlani upisi. Nastaviti?</p>", [{ t: "Odustani", v: 0, cls: "sec" }, { t: "Obriši", v: 1, cls: "danger" }]);
+    if (!ok) return;
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    st = null; pinKey = null; actShow("new");
+  });
+  $("set-pin").addEventListener("click", async function () {
+    $("m-title").textContent = "Promijeni PIN"; $("m-text").innerHTML = "";
+    $("m-body").innerHTML = '<label for="np1">Novi PIN (4–8 cifara)</label><input type="password" id="np1" inputmode="numeric" maxlength="8"><label for="np2">Ponovi PIN</label><input type="password" id="np2" inputmode="numeric" maxlength="8"><div class="msg bad" id="npm"></div>';
+    $("m-btns").innerHTML = '<button type="button" class="btn" id="npok">Snimi PIN</button><button type="button" class="btn sec" id="npno">Odustani</button>';
+    $("modal").classList.add("on");
+    $("npno").onclick = function () { $("modal").classList.remove("on"); };
+    $("npok").onclick = async function () {
+      var a = $("np1").value, b = $("np2").value;
+      if (!/^\d{4,8}$/.test(a)) { $("npm").textContent = "PIN mora imati 4 do 8 cifara."; return; }
+      if (a !== b) { $("npm").textContent = "PIN-ovi nisu isti."; return; }
+      await setPin(a); await save(); $("modal").classList.remove("on"); toast("s-msg", "PIN je promijenjen.");
+    };
+  });
+  $("set-pack").addEventListener("click", function () { actShow("refresh"); });
+
+  function startApp() {
+    $("who").textContent = st.paket.telefon.ime + " · tel. " + st.paket.telefon.id;
+    resetForm();
+    show("upis");
+  }
+
+  // ===== upis =====
+  var sel = {}, editUid = null;
+  function resetForm() {
+    editUid = null; sel = {};
+    var z = st.zadnje || {};
+    $("u-datum").value = todayIso(); $("u-datum").max = todayIso();
+    $("u-start").value = z.start || "07:00"; $("u-end").value = z.end || "17:45"; $("u-pauza").value = z.pauza || "00:45";
+    $("u-nap").value = ""; $("u-q").value = "";
+    $("u-title").textContent = "Novi upis"; $("u-editnote").hidden = true; $("u-cancel").hidden = true; $("u-save").textContent = "Snimi upis";
+  }
+  function renderUpis() {
+    var z = st.zadnje || {}, pv = $("u-proj").value || z.projekat || "";
+    var pl = allProj();
+    fillSel($("u-proj"), pl.map(function (p) { return { v: p.projekat, t: p.projekat + (p.firma ? " – " + p.firma : "") }; }), pv, "— odaberi projekat —");
+    var fv = $("u-firma").value || z.firma || "";
+    fillSel($("u-firma"), allFirme(), fv, "— odaberi firmu —");
+    renderWList(); calc();
+  }
+  $("u-proj").addEventListener("change", function () {
+    var p = allProj().filter(function (x) { return x.projekat === $("u-proj").value; })[0];
+    if (p && p.firma) $("u-firma").value = p.firma;
+    $("u-proj").classList.remove("bad-field");
+  });
+  $("u-firma").addEventListener("change", function () { $("u-firma").classList.remove("bad-field"); });
+  function renderWList() {
+    var q = fold($("u-q").value).trim().split(/\s+/).filter(Boolean);
+    var ws = allWorkers().filter(function (w) {
+      if (!q.length) return true;
+      var words = fold(w.prezime + " " + w.ime).split(/\s+/);
+      return q.every(function (t) { return String(w.id_radnik).indexOf(t) === 0 || words.some(function (x) { return x.indexOf(t) === 0; }); });
+    });
+    $("u-wlist").innerHTML = ws.map(function (w) {
+      var k = wNaziv(w);
+      return '<label><input type="checkbox" data-w="' + esc(k) + '"' + (sel[k] ? " checked" : "") + '><span class="id">' + esc(w.id_radnik || "–") + "</span><span>" + esc(w.prezime + " " + w.ime) + (w.novo ? '<span class="tag">novo</span>' : "") + "</span></label>";
+    }).join("") || '<div class="hint" style="padding:10px">Nema radnika. Dodaj ih u Spiskovi.</div>';
+    var n = Object.keys(sel).length;
+    $("u-chosen").textContent = n ? "Izabrano: " + Object.keys(sel).join(", ") : "";
+    $("u-wcount").textContent = n ? "(" + n + ")" : "";
+  }
+  $("u-q").addEventListener("input", renderWList);
+  $("u-wlist").addEventListener("change", function (e) {
+    var cb = e.target.closest("input[data-w]"); if (!cb) return;
+    var k = cb.getAttribute("data-w");
+    if (editUid) { sel = {}; if (cb.checked) sel[k] = 1; } else if (cb.checked) sel[k] = 1; else delete sel[k];
+    renderWList();
+  });
+  function neto() {
+    var s = toMin($("u-start").value), e = toMin($("u-end").value), p = toMin($("u-pauza").value) || 0;
+    if (s === null || e === null) return null;
+    return e - s - p;
+  }
+  function calc() { var n = neto(); $("u-calc").textContent = n !== null && n > 0 ? "Neto: " + minStr(n) + " h po radniku" : ""; }
+  ["u-start", "u-end", "u-pauza"].forEach(function (id) { $(id).addEventListener("input", calc); });
+  $("u-save").addEventListener("click", async function () {
+    var proj = $("u-proj").value, firma = $("u-firma").value, d = $("u-datum").value;
+    var s = $("u-start").value, e = $("u-end").value, p = $("u-pauza").value || "00:00";
+    var names = Object.keys(sel), err = "";
+    $("u-proj").classList.toggle("bad-field", !proj); $("u-firma").classList.toggle("bad-field", !firma);
+    if (!proj) err = "Odaberi projekat.";
+    else if (!firma) err = "Odaberi firmu.";
+    else if (!names.length) err = "Odaberi barem jednog radnika.";
+    else if (!d) err = "Upiši datum.";
+    else if (d > todayIso()) err = "Datum ne može biti u budućnosti.";
+    else if (toMin(s) === null || toMin(e) === null) err = "Upiši početak i kraj rada.";
+    else if (toMin(e) <= toMin(s)) err = "Kraj rada mora biti poslije početka.";
+    else if ((toMin(p) || 0) >= toMin(e) - toMin(s)) err = "Pauza mora biti kraća od radnog vremena.";
+    else if (toMin(e) - toMin(s) - (toMin(p) || 0) > 16 * 60) err = "Ukupno vrijeme ne može biti duže od 16 sati.";
+    if (err) { toast("u-msg", err, true); return; }
+    var ws = allWorkers();
+    // upozorenje: isti radnik već ima upis koji se preklapa
+    var over = names.filter(function (n) {
+      return st.upisi.some(function (u) { return u.uid !== editUid && u.radnik === n && u.datum === d && toMin(u.start) < toMin(e) && toMin(s) < toMin(u.end); });
+    });
+    if (over.length) {
+      var go = await ask("Preklapanje", "<p>Za " + esc(over.join(", ")) + " već postoji upis tog dana u isto vrijeme. Snimiti ipak?</p>", [{ t: "Nazad", v: 0, cls: "sec" }, { t: "Snimi", v: 1 }]);
+      if (!go) return;
+    }
+    var nap = $("u-nap").value.trim();
+    if (editUid) {
+      var u0 = st.upisi.filter(function (x) { return x.uid === editUid; })[0];
+      if (u0 && !u0.poslano) {
+        var w0 = ws.filter(function (w) { return wNaziv(w) === names[0]; })[0] || {};
+        u0.projekat = proj; u0.firma = firma; u0.radnik = names[0]; u0.prezime = w0.prezime || ""; u0.ime = w0.ime || ""; u0.id_radnik = w0.id_radnik || "";
+        u0.datum = d; u0.start = s; u0.end = e; u0.pauza = p; u0.napomena = nap; u0.izmijenjeno = nowLocal();
+      }
+      toast("u-msg", "Izmjena je snimljena.");
+    } else {
+      names.forEach(function (n) {
+        var w = ws.filter(function (x) { return wNaziv(x) === n; })[0] || {};
+        st.brojac = (st.brojac || 0) + 1;
+        st.upisi.push({ uid: st.paket.telefon.id + "-" + st.brojac, projekat: proj, firma: firma, radnik: n, prezime: w.prezime || "", ime: w.ime || "", id_radnik: w.id_radnik || "",
+          datum: d, start: s, end: e, pauza: p, napomena: nap, kreirano: nowLocal(), poslano: "" });
+      });
+      toast("u-msg", "Snimljeno: " + names.length + (names.length === 1 ? " upis" : " upisa") + ", " + fmtDate(d) + ", neto " + minStr(neto()) + " h.");
+    }
+    st.zadnje = { projekat: proj, firma: firma, start: s, end: e, pauza: p };
+    await save();
+    resetForm(); renderUpis(); badge();
+  });
+  $("u-cancel").addEventListener("click", function () { resetForm(); renderUpis(); toast("u-msg", "Izmjena je otkazana."); });
+  function editUpis(uid) {
+    var u = st.upisi.filter(function (x) { return x.uid === uid; })[0]; if (!u || u.poslano) return;
+    show("upis");
+    editUid = uid; sel = {}; sel[u.radnik] = 1;
+    $("u-proj").value = u.projekat; $("u-firma").value = u.firma; $("u-datum").value = u.datum;
+    $("u-start").value = u.start; $("u-end").value = u.end; $("u-pauza").value = u.pauza; $("u-nap").value = u.napomena || "";
+    $("u-title").textContent = "Izmjena upisa"; $("u-editnote").hidden = false; $("u-editnote").textContent = "Mijenjaš upis za " + u.radnik + ", " + fmtDate(u.datum) + ".";
+    $("u-cancel").hidden = false; $("u-save").textContent = "Sačuvaj izmjenu";
+    renderWList(); calc();
+  }
+
+  // ===== lista upisa =====
+  var lf = "nep";
+  Array.prototype.forEach.call(document.querySelectorAll("[data-lf]"), function (b) { b.addEventListener("click", function () { lf = b.getAttribute("data-lf"); Array.prototype.forEach.call(document.querySelectorAll("[data-lf]"), function (x) { x.classList.toggle("on", x === b); }); renderLista(); }); });
+  function renderLista() {
+    var list = st.upisi.filter(function (u) { return lf === "nep" ? !u.poslano : !!u.poslano; })
+      .sort(function (a, b) { return a.datum < b.datum ? 1 : a.datum > b.datum ? -1 : (a.radnik < b.radnik ? -1 : 1); });
+    if (lf === "pos") list = list.slice(0, 300);
+    var h = "", lastD = "";
+    list.forEach(function (u) {
+      if (u.datum !== lastD) { lastD = u.datum; h += '<div class="day">' + esc(fmtDate(u.datum)) + " · " + esc(dayName(u.datum)) + "</div>"; }
+      var n = toMin(u.end) - toMin(u.start) - (toMin(u.pauza) || 0);
+      h += '<div class="item"><div class="t"><b>' + esc(u.radnik) + "</b><div class=\"s\">" + esc(u.projekat) + " · " + esc(u.start) + "–" + esc(u.end) + ", pauza " + esc(u.pauza) + " = <b>" + minStr(n) + "</b>" + (u.napomena ? " · " + esc(u.napomena) : "") + (u.poslano ? '<span class="tag sent">poslano ' + esc(fmtDate(u.poslano.slice(0, 10))) + "</span>" : "") + "</div></div>" +
+        (u.poslano ? "" : '<div class="acts"><button type="button" class="small" data-ed="' + esc(u.uid) + '">Uredi</button><button type="button" class="small" data-del="' + esc(u.uid) + '">Obriši</button></div>') + "</div>";
+    });
+    $("l-list").innerHTML = h || '<p class="hint">' + (lf === "nep" ? "Nema neposlanih upisa." : "Još ništa nije poslano.") + "</p>";
+  }
+  $("l-list").addEventListener("click", async function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.hasAttribute("data-ed")) { editUpis(b.getAttribute("data-ed")); return; }
+    if (b.hasAttribute("data-del")) {
+      var uid = b.getAttribute("data-del"), u = st.upisi.filter(function (x) { return x.uid === uid; })[0];
+      var ok = await ask("Obriši upis", "<p>" + esc(u.radnik) + ", " + esc(fmtDate(u.datum)) + ", " + esc(u.start) + "–" + esc(u.end) + "</p>", [{ t: "Odustani", v: 0, cls: "sec" }, { t: "Obriši", v: 1, cls: "danger" }]);
+      if (!ok) return;
+      st.upisi = st.upisi.filter(function (x) { return x.uid !== uid; });
+      await save(); renderLista(); badge();
+    }
+  });
+
+  // ===== spiskovi =====
+  var sp = "r";
+  Array.prototype.forEach.call(document.querySelectorAll("[data-sp]"), function (b) { b.addEventListener("click", function () { sp = b.getAttribute("data-sp"); Array.prototype.forEach.call(document.querySelectorAll("[data-sp]"), function (x) { x.classList.toggle("on", x === b); }); renderSpis(); }); });
+  function renderSpis() {
+    ["r", "f", "p"].forEach(function (k) { $("sp-" + k).hidden = k !== sp; });
+    fillSel($("r-firma"), allFirme(), $("r-firma").value, "— bez firme —");
+    fillSel($("p-firma"), allFirme(), $("p-firma").value, "— odaberi firmu —");
+    var h = "";
+    if (sp === "r") {
+      $("sp-ltitle").textContent = "Radnici (" + allWorkers().length + ")";
+      h = allWorkers().map(function (w) { return '<div class="item"><div class="t"><b>' + esc(w.prezime + " " + w.ime) + "</b>" + (w.novo ? '<span class="tag">novo</span>' : "") + '<div class="s">ID ' + esc(w.id_radnik || "–") + (w.firma ? " · " + esc(w.firma) : "") + "</div></div></div>"; }).join("");
+    } else if (sp === "f") {
+      $("sp-ltitle").textContent = "Firme (" + allFirme().length + ")";
+      h = st.paket.firme.map(function (f) { return { f: f, n: false }; }).concat(st.novi.firme.map(function (f) { return { f: f, n: true }; })).map(function (x) { return '<div class="item"><div class="t"><b>' + esc(x.f.firma) + "</b>" + (x.n ? '<span class="tag">novo</span>' : "") + (x.f.adresa ? '<div class="s">' + esc(x.f.adresa) + "</div>" : "") + "</div></div>"; }).join("");
+    } else {
+      $("sp-ltitle").textContent = "Projekti (" + allProj().length + ")";
+      var nk = {}; st.novi.projekti.forEach(function (p) { nk[p.projekat] = 1; });
+      h = allProj().map(function (p) { return '<div class="item"><div class="t"><b>' + esc(p.projekat) + "</b>" + (nk[p.projekat] ? '<span class="tag">novo</span>' : "") + '<div class="s">' + esc(p.firma || "") + (p.adresa ? " · " + esc(p.adresa) : "") + "</div></div></div>"; }).join("");
+    }
+    $("sp-list").innerHTML = h || '<p class="hint">Spisak je prazan.</p>';
+  }
+  function cap(s) { s = String(s || "").replace(/\s+/g, " ").trim(); return s; }
+  $("r-add").addEventListener("click", async function () {
+    var pr = cap($("r-prez").value), im = cap($("r-ime").value), id = cap($("r-id").value), fi = $("r-firma").value;
+    if (!pr || !im) { toast("sp-msg", "Upiši prezime i ime.", true); return; }
+    if (id && !/^\d+$/.test(id)) { toast("sp-msg", "ID radnika može imati samo cifre (ili ostavi prazno).", true); return; }
+    var k = fold(pr + " " + im);
+    if (allWorkers().some(function (w) { return fold(w.prezime + " " + w.ime) === k; })) { toast("sp-msg", "Radnik " + pr + " " + im + " već postoji.", true); return; }
+    if (id && allWorkers().some(function (w) { return String(w.id_radnik) === id; })) { toast("sp-msg", "ID " + id + " već ima drugi radnik. Ostavi prazno – ured dodjeljuje ID.", true); return; }
+    st.novi.radnici.push({ prezime: pr, ime: im, id_radnik: id, firma: fi, kreirano: nowLocal(), poslano: "" });
+    await save(); $("r-prez").value = ""; $("r-ime").value = ""; $("r-id").value = "";
+    toast("sp-msg", "Dodan radnik " + pr + " " + im + ". Šalje se u ured s upisima."); renderSpis(); badge();
+  });
+  $("f-add").addEventListener("click", async function () {
+    var n = cap($("f-naz").value), a = cap($("f-adr").value);
+    if (!n) { toast("sp-msg", "Upiši naziv firme.", true); return; }
+    if (allFirme().some(function (x) { return keyOf(x) === keyOf(n); })) { toast("sp-msg", "Firma " + n + " već postoji.", true); return; }
+    st.novi.firme.push({ firma: n, adresa: a, kreirano: nowLocal(), poslano: "" });
+    await save(); $("f-naz").value = ""; $("f-adr").value = "";
+    toast("sp-msg", "Dodana firma " + n + "."); renderSpis(); badge();
+  });
+  $("p-add").addEventListener("click", async function () {
+    var n = cap($("p-naz").value), fi = $("p-firma").value, a = cap($("p-adr").value);
+    if (!n) { toast("sp-msg", "Upiši naziv projekta.", true); return; }
+    if (!fi) { toast("sp-msg", "Odaberi firmu projekta.", true); return; }
+    if (allProj().some(function (x) { return keyOf(x.projekat) === keyOf(n); })) { toast("sp-msg", "Projekat " + n + " već postoji.", true); return; }
+    st.novi.projekti.push({ projekat: n, firma: fi, adresa: a, kreirano: nowLocal(), poslano: "" });
+    await save(); $("p-naz").value = ""; $("p-adr").value = "";
+    toast("sp-msg", "Dodan projekat " + n + "."); renderSpis(); badge();
+  });
+
+  // ===== slanje =====
+  function renderSend() {
+    var n = unsent(), mins = 0, d0 = "", d1 = "";
+    n.u.forEach(function (u) { mins += toMin(u.end) - toMin(u.start) - (toMin(u.pauza) || 0); if (!d0 || u.datum < d0) d0 = u.datum; if (!d1 || u.datum > d1) d1 = u.datum; });
+    var parts = [];
+    if (n.u.length) parts.push("<b>" + n.u.length + "</b> upisa (" + minStr(mins) + " h" + (d0 ? ", " + fmtDate(d0) + (d1 !== d0 ? " – " + fmtDate(d1) : "") : "") + ")");
+    if (n.r.length) parts.push(n.r.length + " novih radnika");
+    if (n.f.length) parts.push(n.f.length + " novih firmi");
+    if (n.p.length) parts.push(n.p.length + " novih projekata");
+    $("s-sum").innerHTML = parts.length ? "Za slanje: " + parts.join(", ") + "." : "Nema neposlanih podataka.";
+    $("s-to").textContent = st.paket.mail || "(nije upisan u paketu)";
+    renderThumbs();
+    var last = (st.slanja || [])[st.slanja.length - 1];
+    $("set-info").textContent = "Telefon: " + st.paket.telefon.ime + " (" + st.paket.telefon.id + "). Paket od " + fmtDate(String(st.paket.izdato).slice(0, 10)) + ": " + st.paket.radnici.length + " radnika, " + st.paket.projekti.length + " projekata, " + st.paket.firme.length + " firmi." + (last ? " Zadnje slanje: " + fmtDate(last.vrijeme.slice(0, 10)) + " " + last.vrijeme.slice(11, 16) + "." : "") + " Aplikacija " + APP_VER + ".";
+  }
+  function renderThumbs() {
+    $("s-thumbs").innerHTML = st.slike.map(function (im, i) { return '<div><img src="' + im.data + '" alt="Slika ' + (i + 1) + '"><button type="button" data-rm="' + i + '" aria-label="Ukloni sliku">×</button></div>'; }).join("");
+  }
+  $("s-thumbs").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-rm]"); if (!b) return;
+    st.slike.splice(+b.getAttribute("data-rm"), 1); await save(); renderThumbs();
+  });
+  $("s-cam").addEventListener("click", function () { $("s-camfile").value = ""; $("s-camfile").click(); });
+  $("s-gal").addEventListener("click", function () { $("s-galfile").value = ""; $("s-galfile").click(); });
+  function shrink(file) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, 1800 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error("slika se ne može otvoriti")); };
+      img.src = url;
+    });
+  }
+  async function addImages(files) {
+    for (var i = 0; i < files.length; i++) {
+      if (st.slike.length >= 6) { toast("s-msg", "Najviše 6 slika po slanju.", true); break; }
+      try { st.slike.push({ data: await shrink(files[i]), vrijeme: nowLocal() }); } catch (e) { toast("s-msg", e.message, true); }
+    }
+    await save(); renderThumbs();
+  }
+  $("s-camfile").addEventListener("change", function () { addImages(Array.prototype.slice.call(this.files || [])); });
+  $("s-galfile").addEventListener("change", function () { addImages(Array.prototype.slice.call(this.files || [])); });
+
+  var COLS = ["TIP", "ID", "PROJEKAT", "FIRMA", "RADNIK", "PREZIME", "IME", "ID_RADNIK", "DATUM", "POCETAK", "KRAJ", "PAUZA", "NAPOMENA", "ADRESA", "UNIO", "TELEFON", "VRIJEME"];
+  function csvCell(v) { v = String(v == null ? "" : v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function csvRow(o) { return COLS.map(function (c) { return csvCell(o[c]); }).join(","); }
+  function buildCsv(n, sentAt) {
+    var t = st.paket.telefon, ime = t.ime, lines = [COLS.join(",")];
+    lines.push(csvRow({ TIP: "H", ID: t.token, UNIO: ime, TELEFON: t.id, VRIJEME: sentAt, NAPOMENA: "aplikacija " + APP_VER }));
+    n.f.forEach(function (f) { lines.push(csvRow({ TIP: "F", FIRMA: f.firma, ADRESA: f.adresa, UNIO: ime, TELEFON: t.id, VRIJEME: f.kreirano })); });
+    n.p.forEach(function (p) { lines.push(csvRow({ TIP: "P", PROJEKAT: p.projekat, FIRMA: p.firma, ADRESA: p.adresa, UNIO: ime, TELEFON: t.id, VRIJEME: p.kreirano })); });
+    n.r.forEach(function (r) { lines.push(csvRow({ TIP: "R", PREZIME: r.prezime, IME: r.ime, ID_RADNIK: r.id_radnik, FIRMA: r.firma, UNIO: ime, TELEFON: t.id, VRIJEME: r.kreirano })); });
+    n.u.forEach(function (u) {
+      lines.push(csvRow({ TIP: "U", ID: u.uid, PROJEKAT: u.projekat, FIRMA: u.firma, RADNIK: u.radnik, PREZIME: u.prezime, IME: u.ime, ID_RADNIK: u.id_radnik,
+        DATUM: u.datum, POCETAK: u.start, KRAJ: u.end, PAUZA: u.pauza, NAPOMENA: u.napomena, UNIO: ime, TELEFON: t.id, VRIJEME: u.izmijenjeno || u.kreirano }));
+    });
+    return lines.join("\r\n") + "\r\n";
+  }
+  var pendingSend = null;
+  $("s-go").addEventListener("click", async function () {
+    var n = unsent();
+    if (!(n.u.length + n.f.length + n.p.length + n.r.length) && !st.slike.length) { toast("s-msg", "Nema ništa za slanje.", true); return; }
+    if (!st.paket.mail) { toast("s-msg", "U paketu nema mail adrese. Zatraži novi paket iz ureda.", true); return; }
+    $("s-go").disabled = true; toast("s-msg", "Pripremam…");
+    try {
+      var sentAt = nowLocal(), t = st.paket.telefon;
+      var safe = t.ime.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "");
+      var stamp = sentAt.slice(0, 16).replace("T", "_").replace(":", "-");
+      var files = [];
+      if (n.u.length + n.f.length + n.p.length + n.r.length) {
+        var sealed = await sealForOffice(buildCsv(n, sentAt), st.paket.kljuc);
+        files.push({ name: "Evidencija_" + safe + "_" + stamp + ".evt", mime: "application/octet-stream", b64: b64(sealed) });
+      }
+      st.slike.forEach(function (im, i) { files.push({ name: "Izvjestaj_" + safe + "_" + stamp + (st.slike.length > 1 ? "_" + (i + 1) : "") + ".jpg", mime: "image/jpeg", b64: im.data.split(",")[1] }); });
+      var mins = 0; n.u.forEach(function (u) { mins += toMin(u.end) - toMin(u.start) - (toMin(u.pauza) || 0); });
+      var subject = "Evidencija – " + t.ime + " – " + fmtDate(sentAt.slice(0, 10));
+      var body = "Evidencija radnog vremena s telefona.\n\nUnio: " + t.ime + " (tel. " + t.id + ")\nPoslano: " + fmtDate(sentAt.slice(0, 10)) + " " + sentAt.slice(11, 16) +
+        "\nUpisa: " + n.u.length + " (" + minStr(mins) + " h)" + (n.r.length ? "\nNovih radnika: " + n.r.length : "") + (n.f.length ? "\nNovih firmi: " + n.f.length : "") + (n.p.length ? "\nNovih projekata: " + n.p.length : "") +
+        (st.slike.length ? "\nSlika dnevnog izvještaja: " + st.slike.length : "") + "\n\nDatoteku .evt uvezi u programu Evidencija radnog vremena (Radno vrijeme › Uvoz s telefona).\n";
+      pendingSend = { at: sentAt, uids: n.u.map(function (u) { return u.uid; }), f: n.f, p: n.p, r: n.r, slike: st.slike.length };
+      var payload = { to: st.paket.mail, subject: subject, body: body, files: files };
+      if (bridge && bridge.share) { bridge.share(JSON.stringify(payload)); toast("s-msg", "Izaberi Gmail (ili drugi mail program) i pritisni Pošalji."); }
+      else { browserSend(payload); setTimeout(window.evrShareDone, 600); }
+    } catch (e) { toast("s-msg", "Slanje nije pripremljeno: " + (e && e.message ? e.message : e), true); pendingSend = null; }
+    finally { $("s-go").disabled = false; }
+  });
+  // bez Android omotača (test u pregledniku): datoteke se preuzmu, otvori se mail
+  function browserSend(p) {
+    p.files.forEach(function (f) {
+      var a = document.createElement("a"); a.href = "data:" + f.mime + ";base64," + f.b64; a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    window.__lastSend = p;
+  }
+  // Android javi kad se korisnik vrati iz mail programa
+  window.evrShareDone = async function () {
+    if (!pendingSend) return;
+    var ps = pendingSend;
+    var ok = await ask("Je li mail poslan?", "<p>Ako si pritisnuo Pošalji u mail programu, potvrdi. Poslani upisi se označe i više se ne šalju.</p>", [{ t: "Nije poslan", v: 0, cls: "sec" }, { t: "Da, poslan je", v: 1 }]);
+    pendingSend = null;
+    if (!ok) { toast("s-msg", "Ništa nije označeno kao poslano. Pošalji ponovo kad budeš spreman."); return; }
+    st.upisi.forEach(function (u) { if (ps.uids.indexOf(u.uid) >= 0) u.poslano = ps.at; });
+    ps.f.forEach(function (x) { x.poslano = ps.at; }); ps.p.forEach(function (x) { x.poslano = ps.at; }); ps.r.forEach(function (x) { x.poslano = ps.at; });
+    // objekti iz unsent() su isti kao u st.novi, pa su označeni
+    st.slike = [];
+    st.slanja = (st.slanja || []).concat([{ vrijeme: ps.at, upisa: ps.uids.length }]).slice(-50);
+    // poslani upisi stariji od 120 dana se brišu s telefona
+    var lim = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
+    st.upisi = st.upisi.filter(function (u) { return !u.poslano || u.datum >= lim; });
+    await save();
+    renderSend(); badge();
+    toast("s-msg", "Označeno kao poslano: " + ps.uids.length + " upisa.");
+    if (exitAfterSend) { exitAfterSend = false; doExit(); }
+  };
+
+  // ===== izlaz =====
+  var exitAfterSend = false;
+  function doExit() { save().then(function () { st = null; pinKey = null; if (bridge && bridge.exit) bridge.exit(); else { $("pin-who").textContent = ""; show("pin"); } }); }
+  function exitFlow() {
+    if (!st) { if (bridge && bridge.exit) bridge.exit(); return; }
+    if (unsentCount() || st.slike.length) { exitAfterSend = true; show("send"); $("s-exitnote").hidden = false; $("s-exitnosend").hidden = false; return; }
+    doExit();
+  }
+  $("b-exit").addEventListener("click", exitFlow);
+  $("s-exitnosend").addEventListener("click", function () { exitAfterSend = false; doExit(); });
+  // Android dugme Nazad
+  window.evrBack = function () {
+    if (modalOpen()) { $("modal").classList.remove("on"); return true; }
+    if (!st) { if (bridge && bridge.exit) bridge.exit(); return true; }
+    if ($("v-act").hidden === false && actMode === "refresh") { show("send"); return true; }
+    if (cur !== "upis") { show("upis"); return true; }
+    exitFlow(); return true;
+  };
+
+  // ===== start =====
+  if (!CS) { document.body.innerHTML = "<p style='padding:20px'>Šifrovanje nije dostupno na ovom uređaju.</p>"; return; }
+  var rec0 = stored();
+  if (rec0) { $("pin-who").textContent = rec0.ime ? "Telefon: " + rec0.ime : ""; show("pin"); setTimeout(function () { try { $("pin-in").focus(); } catch (e) {} }, 200); }
+  else actShow("new");
+  window.__evr = { state: function () { return st; } };   // za testove
+})();
+</script>
+</body>
+</html>

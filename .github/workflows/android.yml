@@ -1,0 +1,32 @@
+# Pravi APK aplikacije za telefon (android/) na GitHubu.
+# Rezultat: Actions > zadnji run > Artifacts > evidencija-apk (i Release s APK-om kod oznake v*).
+name: Android APK
+on:
+  push:
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch: {}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build APK
+        env:
+          KS_PASS: ${{ secrets.KS_PASS }}
+        run: |
+          gradle -p android assembleRelease --no-daemon --stacktrace
+          mkdir -p out
+          V=$(grep -oP "versionName '\K[^']+" android/app/build.gradle)
+          cp android/app/build/outputs/apk/release/*.apk "out/Evidencija_telefon_$V.apk"
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidencija-apk
+          path: out/*.apk

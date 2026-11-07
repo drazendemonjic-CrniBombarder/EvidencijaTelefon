@@ -1,0 +1,250 @@
+package ba.ppmontage.evidencija;
+
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.util.Base64;
+import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+
+/**
+ * Evidencija radnog vremena – aplikacija za telefon.
+ * Cijeli program je HTML u assets/index.html; ova klasa ga otvara u WebView-u i daje mu:
+ *  - izbor datoteke i kameru (input type=file),
+ *  - slanje mailom (EvrAndroid.share) s prilozima iz keša aplikacije,
+ *  - izlaz (EvrAndroid.exit) i dugme Nazad (window.evrBack),
+ *  - prijem paketa .evp podijeljenog iz WhatsAppa ili maila (window.evrIncomingFile).
+ */
+public class MainActivity extends Activity {
+    private static final int REQ_FILE = 1;
+    private static final int REQ_SHARE = 2;
+
+    private WebView web;
+    private ValueCallback<Uri[]> fileCb;
+    private Uri camUri;
+    private boolean pageReady = false;
+    private String pendingJs = null;
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        web = new WebView(this);
+        setContentView(web);
+        WebSettings s = web.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
+        s.setTextZoom(100);
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                pageReady = true;
+                if (pendingJs != null) { view.evaluateJavascript(pendingJs, null); pendingJs = null; }
+            }
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
+                Uri u = req.getUrl();
+                if ("file".equals(u.getScheme())) return false;
+                try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception e) { /* nema programa za vezu */ }
+                return true;
+            }
+        });
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> cb, FileChooserParams p) {
+                return chooseFile(cb, p);
+            }
+        });
+        web.addJavascriptInterface(new Bridge(), "EvrAndroid");
+        web.loadUrl("file:///android_asset/index.html");
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+
+    // paket iz ureda otvoren / podijeljen u aplikaciju
+    private void handleIntent(Intent i) {
+        if (i == null) return;
+        Uri u = null;
+        if (Intent.ACTION_SEND.equals(i.getAction())) u = i.getParcelableExtra(Intent.EXTRA_STREAM);
+        else if (Intent.ACTION_VIEW.equals(i.getAction())) u = i.getData();
+        if (u == null) return;
+        try {
+            byte[] data = readAll(u);
+            String js = "window.evrIncomingFile && window.evrIncomingFile(" + JSONObject.quote(displayName(u)) + "," + JSONObject.quote(Base64.encodeToString(data, Base64.NO_WRAP)) + ")";
+            if (pageReady) web.evaluateJavascript(js, null); else pendingJs = js;
+        } catch (Exception e) {
+            Toast.makeText(this, "Datoteka se ne može pročitati.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private byte[] readAll(Uri u) throws Exception {
+        InputStream in = getContentResolver().openInputStream(u);
+        if (in == null) throw new Exception("nema podataka");
+        try {
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                bo.write(buf, 0, n);
+                if (bo.size() > 20 * 1024 * 1024) throw new Exception("datoteka je prevelika");
+            }
+            return bo.toByteArray();
+        } finally { in.close(); }
+    }
+
+    private String displayName(Uri u) {
+        String name = null;
+        try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) name = c.getString(0);
+        } catch (Exception e) { /* naziv nije poznat */ }
+        if (name == null) name = u.getLastPathSegment();
+        return name == null ? "paket.evp" : name;
+    }
+
+    // <input type="file">: kamera (capture) ili izbor datoteke / slike
+    private boolean chooseFile(ValueCallback<Uri[]> cb, WebChromeClient.FileChooserParams p) {
+        if (fileCb != null) fileCb.onReceiveValue(null);
+        fileCb = cb;
+        camUri = null;
+        String[] acc = p.getAcceptTypes();
+        boolean image = acc != null && acc.length > 0 && acc[0] != null && acc[0].startsWith("image");
+        try {
+            if (image && p.isCaptureEnabled()) {
+                camUri = FileShareProvider.uriFor("cam", "slika_" + System.currentTimeMillis() + ".jpg");
+                Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                cam.putExtra(MediaStore.EXTRA_OUTPUT, camUri);
+                cam.setClipData(ClipData.newRawUri("slika", camUri));
+                cam.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivityForResult(cam, REQ_FILE);
+            } else {
+                Intent g = new Intent(Intent.ACTION_GET_CONTENT);
+                g.addCategory(Intent.CATEGORY_OPENABLE);
+                g.setType(image ? "image/*" : "*/*");
+                if (p.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) g.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                startActivityForResult(Intent.createChooser(g, image ? "Odaberi sliku" : "Odaberi datoteku"), REQ_FILE);
+            }
+        } catch (ActivityNotFoundException e) {
+            fileCb.onReceiveValue(null);
+            fileCb = null;
+            Toast.makeText(this, "Nema programa za ovu radnju.", Toast.LENGTH_LONG).show();
+        }
+        return true;
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == REQ_FILE) {
+            Uri[] out = null;
+            if (res == RESULT_OK) {
+                if (camUri != null) out = new Uri[]{camUri};
+                else if (data != null && data.getClipData() != null) {
+                    ClipData cd = data.getClipData();
+                    out = new Uri[cd.getItemCount()];
+                    for (int i = 0; i < cd.getItemCount(); i++) out[i] = cd.getItemAt(i).getUri();
+                } else if (data != null && data.getData() != null) out = new Uri[]{data.getData()};
+            }
+            if (fileCb != null) fileCb.onReceiveValue(out);
+            fileCb = null;
+            camUri = null;
+        } else if (req == REQ_SHARE) {
+            web.evaluateJavascript("window.evrShareDone && window.evrShareDone()", null);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        web.evaluateJavascript("(window.evrBack ? window.evrBack() : false)", v -> {
+            if (!"true".equals(v)) finish();
+        });
+    }
+
+    /** Veza prema HTML programu (window.EvrAndroid). */
+    private class Bridge {
+        @JavascriptInterface
+        public void share(final String json) {
+            runOnUiThread(() -> doShare(json));
+        }
+
+        @JavascriptInterface
+        public void exit() {
+            runOnUiThread(() -> finishAndRemoveTask());
+        }
+    }
+
+    // mail s prilozima: datoteke idu u keš (cache/share), a mail program ih čita preko FileShareProvider-a
+    private void doShare(String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            File dir = new File(getCacheDir(), "share");
+            if (dir.exists()) { File[] old = dir.listFiles(); if (old != null) for (File f : old) f.delete(); }
+            dir.mkdirs();
+            JSONArray files = o.optJSONArray("files");
+            ArrayList<Uri> uris = new ArrayList<>();
+            ClipData clip = null;
+            if (files != null) for (int i = 0; i < files.length(); i++) {
+                JSONObject f = files.getJSONObject(i);
+                String name = new File(f.getString("name")).getName();
+                try (FileOutputStream fo = new FileOutputStream(new File(dir, name))) {
+                    fo.write(Base64.decode(f.getString("b64"), Base64.DEFAULT));
+                }
+                Uri u = FileShareProvider.uriFor("share", name);
+                uris.add(u);
+                if (clip == null) clip = ClipData.newRawUri(name, u); else clip.addItem(new ClipData.Item(u));
+            }
+            Intent send = new Intent(uris.size() > 1 ? Intent.ACTION_SEND_MULTIPLE : Intent.ACTION_SEND);
+            send.setType(uris.size() == 1 && name0(files).endsWith(".jpg") ? "image/jpeg" : "application/octet-stream");
+            String to = o.optString("to", "");
+            if (to.length() > 0) send.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+            send.putExtra(Intent.EXTRA_SUBJECT, o.optString("subject", "Evidencija"));
+            send.putExtra(Intent.EXTRA_TEXT, o.optString("body", ""));
+            if (uris.size() > 1) send.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+            else if (uris.size() == 1) send.putExtra(Intent.EXTRA_STREAM, uris.get(0));
+            if (clip != null) send.setClipData(clip);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // samo mail programi (Gmail, Outlook ...); ako ih nema, nudi se svako dijeljenje
+            Intent mailOnly = new Intent(send);
+            mailOnly.setSelector(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")));
+            try {
+                startActivityForResult(Intent.createChooser(mailOnly, "Pošalji mailom"), REQ_SHARE);
+            } catch (ActivityNotFoundException e) {
+                startActivityForResult(Intent.createChooser(send, "Pošalji"), REQ_SHARE);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Slanje nije uspjelo: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static String name0(JSONArray files) {
+        try { return files.getJSONObject(0).getString("name").toLowerCase(); } catch (Exception e) { return ""; }
+    }
+}
