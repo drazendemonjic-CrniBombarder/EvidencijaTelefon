@@ -4,9 +4,12 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -27,6 +30,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Evidencija radnog vremena – aplikacija za telefon.
@@ -176,7 +180,8 @@ public class MainActivity extends Activity {
             fileCb = null;
             camUri = null;
         } else if (req == REQ_SHARE) {
-            web.evaluateJavascript("window.evrShareDone && window.evrShareDone()", null);
+            long ms = System.currentTimeMillis() - shareStart;
+            web.evaluateJavascript("window.evrShareDone && window.evrShareDone(" + ms + ")", null);
         }
     }
 
@@ -201,7 +206,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    // mail s prilozima: datoteke idu u keš (cache/share), a mail program ih čita preko FileShareProvider-a
+    private long shareStart = 0;
+
+    // mail s prilozima: datoteke idu u keš (cache/share), a mail program ih čita preko FileShareProvider-a.
+    // mode "mail": Gmail direktno, pa drugi mail programi; "any": izbor bilo kojeg programa (WhatsApp, Viber, Drive …)
     private void doShare(String json) {
         try {
             JSONObject o = new JSONObject(json);
@@ -231,16 +239,34 @@ public class MainActivity extends Activity {
             else if (uris.size() == 1) send.putExtra(Intent.EXTRA_STREAM, uris.get(0));
             if (clip != null) send.setClipData(clip);
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            // samo mail programi (Gmail, Outlook ...); ako ih nema, nudi se svako dijeljenje
-            Intent mailOnly = new Intent(send);
-            mailOnly.setSelector(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")));
-            try {
-                startActivityForResult(Intent.createChooser(mailOnly, "Pošalji mailom"), REQ_SHARE);
-            } catch (ActivityNotFoundException e) {
-                startActivityForResult(Intent.createChooser(send, "Pošalji"), REQ_SHARE);
+            shareStart = System.currentTimeMillis();
+            if ("mail".equals(o.optString("mode", "mail"))) {
+                PackageManager pm = getPackageManager();
+                // 1) Gmail direktno (bez izbora)
+                Intent gm = new Intent(send);
+                gm.setPackage("com.google.android.gm");
+                if (gm.resolveActivity(pm) != null) { startActivityForResult(gm, REQ_SHARE); return; }
+                // 2) drugi mail programi: oni koji otvaraju mailto: i primaju priloge
+                ArrayList<Intent> targets = new ArrayList<>();
+                List<ResolveInfo> mail = pm.queryIntentActivities(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")), 0);
+                for (ResolveInfo ri : mail) {
+                    Intent t = new Intent(send);
+                    t.setPackage(ri.activityInfo.packageName);
+                    if (t.resolveActivity(pm) != null) targets.add(t);
+                }
+                if (targets.size() == 1) { startActivityForResult(targets.get(0), REQ_SHARE); return; }
+                if (targets.size() > 1) {
+                    Intent ch = Intent.createChooser(targets.remove(0), "Pošalji mailom");
+                    ch.putExtra(Intent.EXTRA_INITIAL_INTENTS, targets.toArray(new Parcelable[0]));
+                    startActivityForResult(ch, REQ_SHARE);
+                    return;
+                }
+                Toast.makeText(this, "Nema mail programa – izaberi drugi način.", Toast.LENGTH_LONG).show();
             }
+            startActivityForResult(Intent.createChooser(send, "Pošalji"), REQ_SHARE);
         } catch (Exception e) {
             Toast.makeText(this, "Slanje nije uspjelo: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            web.evaluateJavascript("window.evrShareDone && window.evrShareDone(0)", null);
         }
     }
 
