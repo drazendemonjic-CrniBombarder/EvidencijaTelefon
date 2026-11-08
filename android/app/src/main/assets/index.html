@@ -126,10 +126,10 @@
   <div class="card">
     <h2 id="u-title">Novi upis</h2>
     <div class="hint" id="u-editnote" hidden></div>
-    <label for="u-proj">Projekat</label>
-    <select id="u-proj"></select>
     <label for="u-firma">Firma</label>
     <select id="u-firma"></select>
+    <label for="u-proj">Projekat</label>
+    <select id="u-proj"></select>
     <label for="u-q">Radnici <span id="u-wcount"></span></label>
     <input type="search" id="u-q" placeholder="Traži po imenu ili ID-u" autocomplete="off">
     <div class="wlist" id="u-wlist"></div>
@@ -236,7 +236,7 @@
 <script>
 (function () {
   "use strict";
-  var APP_VER = "1.2";
+  var APP_VER = "1.3";
   var STORE = "evrTel1";
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -470,20 +470,27 @@
     $("u-nap").value = ""; $("u-q").value = "";
     $("u-title").textContent = "Novi upis"; $("u-editnote").hidden = true; $("u-cancel").hidden = true; $("u-save").textContent = "Snimi upis";
   }
+  // 1.3: prvo firma, pa projekti samo te firme (projekti bez firme se nude uz svaku firmu)
+  function fillProj(pv) {
+    var fi = $("u-firma").value;
+    var pl = allProj().filter(function (p) { return !fi || !p.firma || p.firma === fi; });
+    if (pv && !pl.some(function (p) { return p.projekat === pv; })) pv = "";
+    fillSel($("u-proj"), pl.map(function (p) { return { v: p.projekat, t: p.projekat + (!fi && p.firma ? " – " + p.firma : "") }; }), pv,
+      fi && !pl.length ? "— nema projekata za ovu firmu —" : "— odaberi projekat —");
+  }
   function renderUpis() {
     var z = st.zadnje || {}, pv = $("u-proj").value || z.projekat || "";
-    var pl = allProj();
-    fillSel($("u-proj"), pl.map(function (p) { return { v: p.projekat, t: p.projekat + (p.firma ? " – " + p.firma : "") }; }), pv, "— odaberi projekat —");
     var fv = $("u-firma").value || z.firma || "";
     fillSel($("u-firma"), allFirme(), fv, "— odaberi firmu —");
+    fillProj(pv);
     renderWList(); calc();
   }
   $("u-proj").addEventListener("change", function () {
     var p = allProj().filter(function (x) { return x.projekat === $("u-proj").value; })[0];
-    if (p && p.firma) $("u-firma").value = p.firma;
+    if (p && p.firma && !$("u-firma").value) { $("u-firma").value = p.firma; fillProj(p.projekat); }
     $("u-proj").classList.remove("bad-field");
   });
-  $("u-firma").addEventListener("change", function () { $("u-firma").classList.remove("bad-field"); });
+  $("u-firma").addEventListener("change", function () { $("u-firma").classList.remove("bad-field"); fillProj($("u-proj").value); });
   function renderWList() {
     var q = fold($("u-q").value).trim().split(/\s+/).filter(Boolean);
     var ws = allWorkers().filter(function (w) {
@@ -518,8 +525,8 @@
     var s = $("u-start").value, e = $("u-end").value, p = $("u-pauza").value || "00:00";
     var names = Object.keys(sel), err = "";
     $("u-proj").classList.toggle("bad-field", !proj); $("u-firma").classList.toggle("bad-field", !firma);
-    if (!proj) err = "Odaberi projekat.";
-    else if (!firma) err = "Odaberi firmu.";
+    if (!firma) err = "Odaberi firmu.";
+    else if (!proj) err = "Odaberi projekat.";
     else if (!names.length) err = "Odaberi barem jednog radnika.";
     else if (!d) err = "Upiši datum.";
     else if (d > todayIso()) err = "Datum ne može biti u budućnosti.";
@@ -564,7 +571,7 @@
     var u = st.upisi.filter(function (x) { return x.uid === uid; })[0]; if (!u || u.poslano) return;
     show("upis");
     editUid = uid; sel = {}; sel[u.radnik] = 1;
-    $("u-proj").value = u.projekat; $("u-firma").value = u.firma; $("u-datum").value = u.datum;
+    $("u-firma").value = u.firma; fillProj(u.projekat); $("u-datum").value = u.datum;
     $("u-start").value = u.start; $("u-end").value = u.end; $("u-pauza").value = u.pauza; $("u-nap").value = u.napomena || "";
     $("u-title").textContent = "Izmjena upisa"; $("u-editnote").hidden = false; $("u-editnote").textContent = "Mijenjaš upis za " + u.radnik + ", " + fmtDate(u.datum) + ".";
     $("u-cancel").hidden = false; $("u-save").textContent = "Sačuvaj izmjenu";

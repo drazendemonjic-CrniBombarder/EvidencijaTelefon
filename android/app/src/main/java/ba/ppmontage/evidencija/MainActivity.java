@@ -7,6 +7,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
+import android.os.Build;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -133,6 +139,56 @@ public class MainActivity extends Activity {
         return name == null ? "paket.evp" : name;
     }
 
+    private boolean pickImage = false;
+
+    // slika iz galerije → JPEG (najviše 2400 px, ispravno okrenut) u cache/cam, pa je WebView sigurno može pročitati
+    private Uri toJpeg(Uri src, int idx) throws Exception {
+        Bitmap bmp;
+        final int MAX = 2400;
+        if (Build.VERSION.SDK_INT >= 28) {
+            ImageDecoder.Source s = ImageDecoder.createSource(getContentResolver(), src);
+            bmp = ImageDecoder.decodeBitmap(s, (dec, info, so) -> {
+                int w = info.getSize().getWidth(), h = info.getSize().getHeight(), m = Math.max(w, h);
+                if (m > MAX) { float k = (float) MAX / m; dec.setTargetSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k))); }
+                dec.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+        } else {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            try (InputStream in = getContentResolver().openInputStream(src)) { BitmapFactory.decodeStream(in, null, o); }
+            int sample = 1, m = Math.max(o.outWidth, o.outHeight);
+            while (m / sample > MAX * 2) sample *= 2;
+            BitmapFactory.Options o2 = new BitmapFactory.Options();
+            o2.inSampleSize = sample;
+            try (InputStream in = getContentResolver().openInputStream(src)) { bmp = BitmapFactory.decodeStream(in, null, o2); }
+            if (bmp == null) throw new Exception("slika se ne može pročitati");
+            int rot = 0;
+            try (InputStream in = getContentResolver().openInputStream(src)) {
+                int or = new ExifInterface(in).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                rot = or == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : or == ExifInterface.ORIENTATION_ROTATE_180 ? 180 : or == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            } catch (Exception e) { /* bez EXIF-a */ }
+            float k = Math.min(1f, (float) MAX / Math.max(bmp.getWidth(), bmp.getHeight()));
+            if (rot != 0 || k < 1f) {
+                Matrix mx = new Matrix();
+                mx.postScale(k, k);
+                mx.postRotate(rot);
+                Bitmap b2 = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), mx, true);
+                if (b2 != bmp) bmp.recycle();
+                bmp = b2;
+            }
+        }
+        File dir = new File(getCacheDir(), "cam");
+        dir.mkdirs();
+        // stare kopije iz galerije (starije od 2 dana) se brišu
+        File[] old = dir.listFiles();
+        if (old != null) for (File f : old) if (f.getName().startsWith("gal_") && f.lastModified() < System.currentTimeMillis() - 2 * 864e5) f.delete();
+        String name = "gal_" + System.currentTimeMillis() + "_" + idx + ".jpg";
+        try (FileOutputStream fo = new FileOutputStream(new File(dir, name))) {
+            if (!bmp.compress(Bitmap.CompressFormat.JPEG, 88, fo)) throw new Exception("JPEG nije snimljen");
+        } finally { bmp.recycle(); }
+        return FileShareProvider.uriFor("cam", name);
+    }
+
     // <input type="file">: kamera (capture) ili izbor datoteke / slike
     private boolean chooseFile(ValueCallback<Uri[]> cb, WebChromeClient.FileChooserParams p) {
         if (fileCb != null) fileCb.onReceiveValue(null);
@@ -140,6 +196,7 @@ public class MainActivity extends Activity {
         camUri = null;
         String[] acc = p.getAcceptTypes();
         boolean image = acc != null && acc.length > 0 && acc[0] != null && acc[0].startsWith("image");
+        pickImage = image;
         try {
             if (image && p.isCaptureEnabled()) {
                 camUri = FileShareProvider.uriFor("cam", "slika_" + System.currentTimeMillis() + ".jpg");
@@ -175,6 +232,21 @@ public class MainActivity extends Activity {
                     out = new Uri[cd.getItemCount()];
                     for (int i = 0; i < cd.getItemCount(); i++) out[i] = cd.getItemAt(i).getUri();
                 } else if (data != null && data.getData() != null) out = new Uri[]{data.getData()};
+            }
+            // slike iz galerije (1.3): pretvori u JPEG u kešu aplikacije (HEIC, Google Fotografije, privremene dozvole)
+            if (out != null && camUri == null && pickImage) {
+                final Uri[] src = out;
+                final ValueCallback<Uri[]> cb = fileCb;
+                fileCb = null;
+                camUri = null;
+                new Thread(() -> {
+                    Uri[] conv = new Uri[src.length];
+                    for (int i = 0; i < src.length; i++) {
+                        try { conv[i] = toJpeg(src[i], i); } catch (Throwable e) { conv[i] = src[i]; }
+                    }
+                    runOnUiThread(() -> { if (cb != null) cb.onReceiveValue(conv); });
+                }).start();
+                return;
             }
             if (fileCb != null) fileCb.onReceiveValue(out);
             fileCb = null;
