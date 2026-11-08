@@ -202,7 +202,7 @@
     <button type="button" class="btn sec" id="s-any">Podijeli drugim programom (WhatsApp, Viber…)</button>
     <button type="button" class="btn sec" id="s-exitnosend" hidden>Izađi bez slanja</button>
     <div class="msg" id="s-msg" role="status"></div>
-    <p class="hint">Podaci se šalju šifrovani (datoteka .evt) – otvoriti ih može samo program u uredu. Slika ide kao obična slika. Mail ide na: <b id="s-to"></b></p>
+    <p class="hint">Podaci se šalju šifrovani (datoteka .evt) – otvoriti ih može samo program u uredu. Slika ide kao obična slika. Mail ide na: <b id="s-to"></b><span id="s-ccwrap" hidden><br>Kopija (CC): <b id="s-cc"></b></span></p>
   </div>
   <div class="card" id="s-histwrap" hidden>
     <h2>Ranija slanja</h2>
@@ -236,7 +236,7 @@
 <script>
 (function () {
   "use strict";
-  var APP_VER = "1.1";
+  var APP_VER = "1.2";
   var STORE = "evrTel1";
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -661,9 +661,17 @@
     if (n.p.length) parts.push(n.p.length + " novih projekata");
     $("s-sum").innerHTML = parts.length ? "Za slanje: " + parts.join(", ") + "." : "Nema neposlanih podataka.";
     $("s-to").textContent = st.paket.mail || "(nije upisan u paketu)";
+    // kopije maila iz paketa (1.2)
+    var cc = ccList();
+    $("s-cc").textContent = cc.join(", "); $("s-ccwrap").hidden = !cc.length;
     renderThumbs(); renderHist();
     var last = (st.slanja || [])[st.slanja.length - 1];
     $("set-info").textContent = "Telefon: " + st.paket.telefon.ime + " (" + st.paket.telefon.id + "). Paket od " + fmtDate(String(st.paket.izdato).slice(0, 10)) + ": " + st.paket.radnici.length + " radnika, " + st.paket.projekti.length + " projekata, " + st.paket.firme.length + " firmi." + (last ? " Zadnje slanje: " + fmtDate(last.vrijeme.slice(0, 10)) + " " + last.vrijeme.slice(11, 16) + "." : "") + " Aplikacija " + APP_VER + ".";
+  }
+  // adrese za kopiju (CC) iz paketa; stari paketi ih nemaju
+  function ccList() {
+    var m = String(st.paket.mail || "").toLowerCase();
+    return (Array.isArray(st.paket.cc) ? st.paket.cc : []).filter(function (a, i, arr) { return a && String(a).toLowerCase() !== m && arr.indexOf(a) === i; });
   }
   function renderThumbs() {
     $("s-thumbs").innerHTML = st.slike.map(function (im, i) { return '<div><img src="' + im.data + '" alt="Slika ' + (i + 1) + '"><button type="button" data-rm="' + i + '" aria-label="Ukloni sliku">×</button></div>'; }).join("");
@@ -728,7 +736,7 @@
     var body = "Evidencija radnog vremena s telefona.\n\nUnio: " + t.ime + " (tel. " + t.id + ")\nPoslano: " + fmtDate(at.slice(0, 10)) + " " + at.slice(11, 16) + (resend ? " – ponovno slanje" : "") +
       "\nUpisa: " + n.u.length + " (" + minStr(mins) + " h)" + (n.r.length ? "\nNovih radnika: " + n.r.length : "") + (n.f.length ? "\nNovih firmi: " + n.f.length : "") + (n.p.length ? "\nNovih projekata: " + n.p.length : "") +
       (slike.length ? "\nSlika dnevnog izvještaja: " + slike.length : "") + "\n\nDatoteku .evt uvezi u programu Evidencija radnog vremena (Radno vrijeme › Uvoz s telefona).\n";
-    return { to: st.paket.mail, subject: subject, body: body, files: files };
+    return { to: st.paket.mail, cc: ccList(), subject: subject, body: body, files: files };
   }
   // mode: "mail" = Gmail / mail program, "any" = bilo koji program (WhatsApp, Viber, Drive…)
   async function startSend(mode) {

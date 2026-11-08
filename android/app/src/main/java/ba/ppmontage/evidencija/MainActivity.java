@@ -233,6 +233,13 @@ public class MainActivity extends Activity {
             send.setType(uris.size() == 1 && name0(files).endsWith(".jpg") ? "image/jpeg" : "application/octet-stream");
             String to = o.optString("to", "");
             if (to.length() > 0) send.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+            // kopije (CC) iz paketa (1.2)
+            JSONArray ccA = o.optJSONArray("cc");
+            if (ccA != null && ccA.length() > 0) {
+                ArrayList<String> cc = new ArrayList<>();
+                for (int i = 0; i < ccA.length(); i++) { String a = ccA.optString(i, "").trim(); if (a.length() > 0) cc.add(a); }
+                if (!cc.isEmpty()) send.putExtra(Intent.EXTRA_CC, cc.toArray(new String[0]));
+            }
             send.putExtra(Intent.EXTRA_SUBJECT, o.optString("subject", "Evidencija"));
             send.putExtra(Intent.EXTRA_TEXT, o.optString("body", ""));
             if (uris.size() > 1) send.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
