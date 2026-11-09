@@ -236,7 +236,7 @@
 <script>
 (function () {
   "use strict";
-  var APP_VER = "1.3";
+  var APP_VER = "1.4";
   var STORE = "evrTel1";
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -730,8 +730,16 @@
   var pendingSend = null;
   function safeName(x) { return x.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, ""); }
   // priprema maila: šifrovana .evt datoteka (upisi i novi radnici/firme/projekti) + slike; resend = ponovo isti paket podataka
+  // dani upisa (gggg-mm-dd), bez ponavljanja, složeni
+  function workDays(us) {
+    var m = {}, a = [];
+    us.forEach(function (u) { var d = String(u.datum || "").slice(0, 10); if (/^\d{4}-\d{2}-\d{2}$/.test(d) && !m[d]) { m[d] = 1; a.push(d); } });
+    return a.sort();
+  }
+  function dayTag(dani) { return dani.length === 1 ? dani[0] : dani[0] + "_do_" + dani[dani.length - 1]; }
   async function buildPayload(n, at, slike, resend) {
-    var t = st.paket.telefon, safe = safeName(t.ime), stamp = at.slice(0, 16).replace("T", "_").replace(":", "-");
+    // ime datoteke: Evidencija_Ime_<dan upisa>_<datum i vrijeme slanja>; više dana upisa → <prvi>_do_<zadnji> (1.4)
+    var t = st.paket.telefon, safe = safeName(t.ime), dani = workDays(n.u), stamp = (dani.length ? dayTag(dani) + "_" : "") + at.slice(0, 16).replace("T", "_").replace(":", "-");
     var files = [];
     if (n.u.length + n.f.length + n.p.length + n.r.length) {
       var sealed = await sealForOffice(buildCsv(n, nowLocal()), st.paket.kljuc);
@@ -741,7 +749,7 @@
     var mins = 0; n.u.forEach(function (u) { mins += toMin(u.end) - toMin(u.start) - (toMin(u.pauza) || 0); });
     var subject = "Evidencija – " + t.ime + " – " + fmtDate(at.slice(0, 10)) + (resend ? " (ponovo)" : "");
     var body = "Evidencija radnog vremena s telefona.\n\nUnio: " + t.ime + " (tel. " + t.id + ")\nPoslano: " + fmtDate(at.slice(0, 10)) + " " + at.slice(11, 16) + (resend ? " – ponovno slanje" : "") +
-      "\nUpisa: " + n.u.length + " (" + minStr(mins) + " h)" + (n.r.length ? "\nNovih radnika: " + n.r.length : "") + (n.f.length ? "\nNovih firmi: " + n.f.length : "") + (n.p.length ? "\nNovih projekata: " + n.p.length : "") +
+      "\nUpisa: " + n.u.length + " (" + minStr(mins) + " h)" + (dani.length ? "\nDan upisa: " + dani.map(fmtDate).join(", ") : "") + (n.r.length ? "\nNovih radnika: " + n.r.length : "") + (n.f.length ? "\nNovih firmi: " + n.f.length : "") + (n.p.length ? "\nNovih projekata: " + n.p.length : "") +
       (slike.length ? "\nSlika dnevnog izvještaja: " + slike.length : "") + "\n\nDatoteku .evt uvezi u programu Evidencija radnog vremena (Radno vrijeme › Uvoz s telefona).\n";
     return { to: st.paket.mail, cc: ccList(), subject: subject, body: body, files: files };
   }
