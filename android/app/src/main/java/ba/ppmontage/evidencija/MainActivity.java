@@ -1,7 +1,11 @@
 package ba.ppmontage.evidencija;
 
 import android.app.Activity;
+import android.Manifest;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -15,6 +19,7 @@ import android.media.ExifInterface;
 import android.os.Build;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Parcelable;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
@@ -35,6 +40,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,11 +50,16 @@ import java.util.List;
  *  - izbor datoteke i kameru (input type=file),
  *  - slanje mailom (EvrAndroid.share) s prilozima iz keša aplikacije,
  *  - izlaz (EvrAndroid.exit) i dugme Nazad (window.evrBack),
- *  - prijem paketa .evp podijeljenog iz WhatsAppa ili maila (window.evrIncomingFile).
+ *  - prijem paketa .evp podijeljenog iz WhatsAppa ili maila (window.evrIncomingFile),
+ *  - poslane slike izvještaja u galeriju, album Evidencija (EvrAndroid.saveImages, 1.5); stare 120 dana se brišu.
  */
 public class MainActivity extends Activity {
     private static final int REQ_FILE = 1;
     private static final int REQ_SHARE = 2;
+    private static final int REQ_PERM = 3;
+    // slike izvještaja u galeriji: Pictures/Evidencija, čuvaju se 120 dana (kao poslani upisi)
+    private static final String ALBUM = "Evidencija";
+    private static final long KEEP_MS = 120L * 24 * 3600 * 1000;
 
     private WebView web;
     private ValueCallback<Uri[]> fileCb;
@@ -90,6 +101,8 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "EvrAndroid");
         web.loadUrl("file:///android_asset/index.html");
         handleIntent(getIntent());
+        // stare slike izvještaja (starije od 120 dana) se brišu iz galerije; brišu se samo slike ove aplikacije
+        new Thread(this::cleanGallery).start();
     }
 
     @Override
@@ -273,6 +286,11 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void saveImages(final String json) {
+            runOnUiThread(() -> startSaveImages(json));
+        }
+
+        @JavascriptInterface
         public void exit() {
             runOnUiThread(() -> finishAndRemoveTask());
         }
@@ -347,6 +365,108 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Slanje nije uspjelo: " + e.getMessage(), Toast.LENGTH_LONG).show();
             web.evaluateJavascript("window.evrShareDone && window.evrShareDone(0)", null);
         }
+    }
+
+    // ===== slike izvještaja u galeriju (1.5) =====
+    private String pendingImages = null;
+
+    private void startSaveImages(String json) {
+        // Android 9 i stariji: za javni folder Pictures treba dozvola za pisanje
+        if (Build.VERSION.SDK_INT < 29 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            pendingImages = json;
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_PERM);
+            return;
+        }
+        final String j = json;
+        new Thread(() -> saveImagesNow(j)).start();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
+        if (req != REQ_PERM || pendingImages == null) return;
+        final String j = pendingImages;
+        pendingImages = null;
+        if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) new Thread(() -> saveImagesNow(j)).start();
+        else imagesDone(0, "nema dozvole za galeriju");
+    }
+
+    private void saveImagesNow(String json) {
+        int n = 0;
+        String err = "";
+        try {
+            JSONArray a = new JSONArray(json);
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject f = a.getJSONObject(i);
+                String name = new File(f.getString("name")).getName();
+                byte[] data = Base64.decode(f.getString("b64"), Base64.DEFAULT);
+                try { saveOne(name, data); n++; } catch (Exception e) { err = e.getMessage() == null ? "greška" : e.getMessage(); }
+            }
+        } catch (Exception e) { err = e.getMessage() == null ? "greška" : e.getMessage(); }
+        imagesDone(n, err);
+    }
+
+    private void imagesDone(int n, String err) {
+        final String js = "window.evrImagesSaved && window.evrImagesSaved(" + n + "," + JSONObject.quote(err == null ? "" : err) + ")";
+        runOnUiThread(() -> { try { if (!isFinishing() && !isDestroyed()) web.evaluateJavascript(js, null); } catch (Exception e) { /* aplikacija je zatvorena */ } });
+    }
+
+    private void saveOne(String name, byte[] data) throws Exception {
+        if (Build.VERSION.SDK_INT >= 29) {
+            ContentResolver cr = getContentResolver();
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+            v.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+            v.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/" + ALBUM);
+            v.put(MediaStore.Images.Media.IS_PENDING, 1);
+            Uri u = cr.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), v);
+            if (u == null) throw new Exception("galerija ne prima sliku");
+            try (OutputStream os = cr.openOutputStream(u)) {
+                if (os == null) throw new Exception("galerija ne prima sliku");
+                os.write(data);
+            } catch (Exception e) { cr.delete(u, null, null); throw e; }
+            v.clear();
+            v.put(MediaStore.Images.Media.IS_PENDING, 0);
+            cr.update(u, v, null, null);
+        } else {
+            File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), ALBUM);
+            if (!dir.exists() && !dir.mkdirs()) throw new Exception("folder Pictures/" + ALBUM + " nije napravljen");
+            File f = new File(dir, name);
+            try (FileOutputStream fo = new FileOutputStream(f)) { fo.write(data); }
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.Images.Media.DATA, f.getAbsolutePath());
+            v.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+            v.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+            v.put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000);
+            try { getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v); } catch (Exception e) { /* galerija će je naći kasnije */ }
+        }
+    }
+
+    // briše slike izvještaja ove aplikacije starije od 120 dana (ručno obrisane više ne postoje, ništa se ne javlja)
+    private void cleanGallery() {
+        try {
+            long lim = (System.currentTimeMillis() - KEEP_MS) / 1000;
+            ContentResolver cr = getContentResolver();
+            if (Build.VERSION.SDK_INT >= 29) {
+                Uri base = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                String sel = MediaStore.Images.Media.RELATIVE_PATH + " LIKE ? AND " + MediaStore.Images.Media.DISPLAY_NAME + " LIKE ? AND " + MediaStore.Images.Media.DATE_ADDED + " < ? AND " + MediaStore.Images.Media.OWNER_PACKAGE_NAME + " = ?";
+                String[] args = {Environment.DIRECTORY_PICTURES + "/" + ALBUM + "%", "Izvjestaj_%", String.valueOf(lim), getPackageName()};
+                ArrayList<Uri> del = new ArrayList<>();
+                try (Cursor c = cr.query(base, new String[]{MediaStore.Images.Media._ID}, sel, args, null)) {
+                    while (c != null && c.moveToNext()) del.add(ContentUris.withAppendedId(base, c.getLong(0)));
+                }
+                for (Uri u : del) { try { cr.delete(u, null, null); } catch (Exception e) { /* nije naša ili je već obrisana */ } }
+            } else if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), ALBUM);
+                File[] fs = dir.listFiles();
+                if (fs != null) for (File f : fs) {
+                    if (f.getName().startsWith("Izvjestaj_") && f.lastModified() < lim * 1000) {
+                        try { cr.delete(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaStore.Images.Media.DATA + " = ?", new String[]{f.getAbsolutePath()}); } catch (Exception e) { /* nije u galeriji */ }
+                        f.delete();
+                    }
+                }
+            }
+        } catch (Throwable e) { /* čišćenje nije bitno za rad */ }
     }
 
     private static String name0(JSONArray files) {

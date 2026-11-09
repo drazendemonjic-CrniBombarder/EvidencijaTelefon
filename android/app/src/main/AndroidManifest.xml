@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 9 i stariji: slike izvještaja u Pictures/Evidencija (od Androida 10 dozvola nije potrebna) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <!-- Android 11+: aplikacija mora navesti koje programe traži (Gmail i mail programi za slanje) -->
     <queries>
         <package android:name="com.google.android.gm" />

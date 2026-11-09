@@ -202,7 +202,7 @@
     <button type="button" class="btn sec" id="s-any">Podijeli drugim programom (WhatsApp, Viber…)</button>
     <button type="button" class="btn sec" id="s-exitnosend" hidden>Izađi bez slanja</button>
     <div class="msg" id="s-msg" role="status"></div>
-    <p class="hint">Podaci se šalju šifrovani (datoteka .evt) – otvoriti ih može samo program u uredu. Slika ide kao obična slika. Mail ide na: <b id="s-to"></b><span id="s-ccwrap" hidden><br>Kopija (CC): <b id="s-cc"></b></span></p>
+    <p class="hint">Podaci se šalju šifrovani (datoteka .evt) – otvoriti ih može samo program u uredu. Slika ide kao obična slika i poslije slanja ostaje u galeriji telefona (album „Evidencija“, 120 dana). Mail ide na: <b id="s-to"></b><span id="s-ccwrap" hidden><br>Kopija (CC): <b id="s-cc"></b></span></p>
   </div>
   <div class="card" id="s-histwrap" hidden>
     <h2>Ranija slanja</h2>
@@ -236,7 +236,7 @@
 <script>
 (function () {
   "use strict";
-  var APP_VER = "1.4";
+  var APP_VER = "1.5";
   var STORE = "evrTel1";
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -762,7 +762,8 @@
     try {
       var at = nowLocal();
       var payload = await buildPayload(n, at, st.slike, false);
-      pendingSend = { at: at, uids: n.u.map(function (u) { return u.uid; }), f: n.f, p: n.p, r: n.r, slike: st.slike.length, t0: Date.now(), mode: mode };
+      pendingSend = { at: at, uids: n.u.map(function (u) { return u.uid; }), f: n.f, p: n.p, r: n.r, slike: st.slike.length, t0: Date.now(), mode: mode,
+        imgs: payload.files.filter(function (f) { return /\.jpg$/i.test(f.name); }).map(function (f) { return { name: f.name, b64: f.b64 }; }) };
       hand(payload, mode);
     } catch (e) { toast("s-msg", "Slanje nije pripremljeno: " + (e && e.message ? e.message : e), true); pendingSend = null; }
     finally { $("s-go").disabled = false; $("s-any").disabled = false; }
@@ -787,7 +788,7 @@
   function renderHist() {
     var h = (st.slanja || []).slice(-8).reverse().filter(function (x) { return st.upisi.some(function (u) { return u.poslano === x.vrijeme; }); });
     $("s-histwrap").hidden = !h.length;
-    $("s-hist").innerHTML = h.map(function (x) { return '<div class="item"><div class="t"><b>' + esc(fmtDate(x.vrijeme.slice(0, 10)) + " " + x.vrijeme.slice(11, 16)) + '</b><div class="s">' + x.upisa + ' upisa</div></div><div class="acts"><button type="button" class="small" data-rs="' + esc(x.vrijeme) + '">Pošalji ponovo</button></div></div>'; }).join("");
+    $("s-hist").innerHTML = h.map(function (x) { return '<div class="item"><div class="t"><b>' + esc(fmtDate(x.vrijeme.slice(0, 10)) + " " + x.vrijeme.slice(11, 16)) + '</b><div class="s">' + x.upisa + ' upisa' + (x.slike && x.slike.length ? ', slika: ' + x.slike.length + ' (u galeriji)' : '') + '</div></div><div class="acts"><button type="button" class="small" data-rs="' + esc(x.vrijeme) + '">Pošalji ponovo</button></div></div>'; }).join("");
   }
   // bez Android omotača (test u pregledniku): datoteke se preuzmu
   function browserSend(p) {
@@ -809,14 +810,27 @@
     if (!ok) { toast("s-msg", "Ništa nije označeno kao poslano. Pošalji ponovo kad budeš spreman."); return; }
     st.upisi.forEach(function (u) { if (ps.uids.indexOf(u.uid) >= 0) u.poslano = ps.at; });
     ps.f.forEach(function (x) { x.poslano = ps.at; }); ps.p.forEach(function (x) { x.poslano = ps.at; }); ps.r.forEach(function (x) { x.poslano = ps.at; });
+    // poslane slike idu u galeriju telefona (album Evidencija), tamo ostaju 120 dana ili dok ih korisnik ne obriše (1.5)
+    if (ps.imgs && ps.imgs.length) saveToGallery(ps.imgs);
     st.slike = [];
-    st.slanja = (st.slanja || []).concat([{ vrijeme: ps.at, upisa: ps.uids.length }]).slice(-50);
+    st.slanja = (st.slanja || []).concat([{ vrijeme: ps.at, upisa: ps.uids.length, slike: (ps.imgs || []).map(function (f) { return f.name; }) }]).slice(-50);
     var lim = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
     st.upisi = st.upisi.filter(function (u) { return !u.poslano || u.datum >= lim; });
     await save();
     renderSend(); badge();
     toast("s-msg", "Označeno kao poslano: " + ps.uids.length + " upisa.");
     if (exitAfterSend) { exitAfterSend = false; doExit(); }
+  };
+
+  function saveToGallery(imgs) {
+    if (bridge && bridge.saveImages) { bridge.saveImages(JSON.stringify(imgs)); return; }
+    window.__galleryImgs = (window.__galleryImgs || []).concat(imgs.map(function (f) { return f.name; }));
+    setTimeout(function () { window.evrImagesSaved(imgs.length, ""); }, 50);
+  }
+  // Android javi koliko je slika snimljeno u galeriju
+  window.evrImagesSaved = function (n, err) {
+    if (err) toast("s-msg", "Slike nisu snimljene u galeriju (" + err + "). Ostale su u poslanom mailu.", true);
+    else if (n) toast("s-msg", "Poslano. " + (n === 1 ? "Slika je snimljena" : n + " slike snimljene") + " u galeriju, album „Evidencija“ (čuva se 120 dana).");
   };
 
   // ===== izlaz =====
