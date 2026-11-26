@@ -57,6 +57,7 @@ public class MainActivity extends Activity {
     private static final int REQ_FILE = 1;
     private static final int REQ_SHARE = 2;
     private static final int REQ_PERM = 3;
+    private static final int REQ_NOTIF = 4;
     // slike izvještaja u galeriji: Pictures/Evidencija, čuvaju se 120 dana (kao poslani upisi)
     private static final String ALBUM = "Evidencija";
     private static final long KEEP_MS = 120L * 24 * 3600 * 1000;
@@ -101,6 +102,13 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "EvrAndroid");
         web.loadUrl("file:///android_asset/index.html");
         handleIntent(getIntent());
+        // 1.7: podsjetnik u 7:30 – zakaži (ako je telefon aktiviran) i na Androidu 13+ jednom traži dozvolu za notifikacije
+        Podsjetnik.schedule(this);
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                && !getSharedPreferences(Podsjetnik.PREFS, MODE_PRIVATE).getBoolean("pitano", false)) {
+            getSharedPreferences(Podsjetnik.PREFS, MODE_PRIVATE).edit().putBoolean("pitano", true).apply();
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, REQ_NOTIF);
+        }
         // stare slike izvještaja (starije od 120 dana) se brišu iz galerije; brišu se samo slike ove aplikacije
         new Thread(this::cleanGallery).start();
     }
@@ -288,6 +296,18 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void saveImages(final String json) {
             runOnUiThread(() -> startSaveImages(json));
+        }
+
+        /** 1.7: datumi upisanih i poslanih dana za podsjetnik ({"sent":[…], "made":[…]}). */
+        @JavascriptInterface
+        public void setDays(final String json) {
+            Podsjetnik.setDays(getApplicationContext(), json);
+        }
+
+        /** 1.7: nova aktivacija (podaci obrisani) – podsjetnik se gasi do sljedećeg javljanja. */
+        @JavascriptInterface
+        public void stopReminder() {
+            Podsjetnik.stop(getApplicationContext());
         }
 
         @JavascriptInterface

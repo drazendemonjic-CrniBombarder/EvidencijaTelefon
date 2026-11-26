@@ -236,7 +236,7 @@
 <script>
 (function () {
   "use strict";
-  var APP_VER = "1.6";
+  var APP_VER = "1.7";
   var STORE = "evrTel1";
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -298,9 +298,19 @@
   }
   function stored() { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } }
   var saving = Promise.resolve();
+  // 1.7: podsjetniku (Java, 7:30) se javljaju samo datumi: dani s poslanim upisom i dani s upisom koji još nije poslan
+  function remDays() {
+    if (!st || !st.upisi) return;
+    var sent = {}, made = {};
+    st.upisi.forEach(function (u) { if (!u.datum) return; if (u.poslano) sent[u.datum] = 1; else made[u.datum] = 1; });
+    var j = JSON.stringify({ sent: Object.keys(sent).sort(), made: Object.keys(made).sort() });
+    window.__remDays = j;   // za test u pregledniku
+    try { if (bridge && bridge.setDays) bridge.setDays(j); } catch (e) { /* stara Java bez podsjetnika */ }
+  }
   function save() {
     if (!st || !pinKey) return saving;
     var snap = JSON.stringify(st);
+    remDays();
     saving = saving.then(async function () {
       var iv = rnd(12);
       var ct = new Uint8Array(await CS.encrypt({ name: "AES-GCM", iv: iv }, pinKey, enc.encode(snap)));
@@ -317,6 +327,7 @@
     var plain = await CS.decrypt({ name: "AES-GCM", iv: unb64(rec.iv) }, k, unb64(rec.ct));
     st = JSON.parse(dec.decode(plain)); pinKey = k; pinSalt = salt;
     if (!st.slike) st.slike = [];
+    remDays();
   }
 
   // ===== spiskovi (paket + novi s telefona) =====
@@ -437,6 +448,7 @@
     var ok = await ask("Nova aktivacija", "<p>Svi podaci na telefonu se brišu, i neposlani upisi. Nastaviti?</p>", [{ t: "Odustani", v: 0, cls: "sec" }, { t: "Obriši", v: 1, cls: "danger" }]);
     if (!ok) return;
     try { localStorage.removeItem(STORE); } catch (e) {}
+    try { if (bridge && bridge.stopReminder) bridge.stopReminder(); } catch (e) {}
     st = null; pinKey = null; actShow("new");
   });
   $("set-pin").addEventListener("click", async function () {
@@ -673,7 +685,7 @@
     $("s-cc").textContent = cc.join(", "); $("s-ccwrap").hidden = !cc.length;
     renderThumbs(); renderHist();
     var last = (st.slanja || [])[st.slanja.length - 1];
-    $("set-info").textContent = "Telefon: " + st.paket.telefon.ime + " (" + st.paket.telefon.id + "). Paket od " + fmtDate(String(st.paket.izdato).slice(0, 10)) + ": " + st.paket.radnici.length + " radnika, " + st.paket.projekti.length + " projekata, " + st.paket.firme.length + " firmi." + (last ? " Zadnje slanje: " + fmtDate(last.vrijeme.slice(0, 10)) + " " + last.vrijeme.slice(11, 16) + "." : "") + " Aplikacija " + APP_VER + ".";
+    $("set-info").textContent = "Telefon: " + st.paket.telefon.ime + " (" + st.paket.telefon.id + "). Paket od " + fmtDate(String(st.paket.izdato).slice(0, 10)) + ": " + st.paket.radnici.length + " radnika, " + st.paket.projekti.length + " projekata, " + st.paket.firme.length + " firmi." + (last ? " Zadnje slanje: " + fmtDate(last.vrijeme.slice(0, 10)) + " " + last.vrijeme.slice(11, 16) + "." : "") + " Aplikacija " + APP_VER + ". Podsjetnik: u 7:30, ako za prethodni radni dan (pon–sub) nije poslana evidencija.";
   }
   // adrese za kopiju (CC) iz paketa; stari paketi ih nemaju
   function ccList() {
